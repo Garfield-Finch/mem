@@ -1,5 +1,5 @@
 # gitignore for python project
-.idea/
+.idea
 *.iml
 *.pyc
 
