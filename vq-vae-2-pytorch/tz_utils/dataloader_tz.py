@@ -15,16 +15,19 @@ import pickle
 
 
 class iPERLoader:
-    def __init__(self, data_root, batch=2, workers=8, scale=512):
+    def __init__(self, data_root, batch=2, workers=8, scale=512, transpose=None):
         self.data_root = data_root
         self.batch = batch
         self.workers = workers
 
         # ToAdd: images transform
-        self.t = T.Compose([
-            T.Resize((scale, scale)),
-            T.ToTensor()
-        ])
+        if transpose != None:
+            self.t = transpose
+        else:
+            self.t = T.Compose([
+                T.Resize((scale, scale)),
+                T.ToTensor()
+            ])
         self.tar_t = T.ToTensor()
 
     def data_load(self):
@@ -40,12 +43,12 @@ class iPERLoader:
         #     subset='val',
         #     transform=self.t)
 
-        test_set = iPERDataset(
-            data_root=self.data_root,
-            subset='test',
-            transform=self.t,
-            target_transform=self.tar_t
-        )
+        # test_set = iPERDataset(
+        #     data_root=self.data_root,
+        #     subset='train',
+        #     transform=self.t,
+        #     target_transform=self.tar_t
+        # )
 
         train_loader = torch.utils.data.DataLoader(
             dataset=train_set,
@@ -62,23 +65,23 @@ class iPERLoader:
         #     pin_memory=True
         # )
 
-        test_loader = torch.utils.data.DataLoader(
-            dataset=test_set,
-            batch_size=self.batch,
-            num_workers=self.workers,
-            pin_memory=True,
-            shuffle=False
-        )
+        # test_loader = torch.utils.data.DataLoader(
+        #     dataset=test_set,
+        #     batch_size=self.batch,
+        #     num_workers=self.workers,
+        #     pin_memory=True,
+        #     shuffle=False
+        # )
 
         # return train_loader, val_loader, test_loader
-        return train_loader, test_loader
+        return train_loader, train_loader
 
 
 class iPERDataset(torch.utils.data.Dataset):
 
     def __init__(self, data_root, subset, transform=None, target_transform=None):
 
-        # super(IDRiDClsDataset, self).__init__()
+        super(iPERDataset, self).__init__()
 
         self.data_root = data_root
         self.subset = subset
@@ -89,9 +92,10 @@ class iPERDataset(torch.utils.data.Dataset):
         #     for row in csv.reader(f):
         #         self.path_label_list.append(row)
         # self.path_label_list.pop(0)
-        if subset != 'train':
-            subset = 'val'
+        # if subset != 'train':
+        #     subset = 'val'
 
+        # load items from a txt file
         nm_file = os.path.join(data_root, f'{subset}.txt')
         self.lst_dir = []
         with open(nm_file, 'r') as f:
@@ -156,7 +160,7 @@ class iPERDataset(torch.utils.data.Dataset):
 
             return BP
 
-        size_img = 512
+        size_img = 256
 
         if item == 0:
             P1_item = 0
@@ -165,14 +169,14 @@ class iPERDataset(torch.utils.data.Dataset):
                 if item < self.input_statistics[i]:
                     P1_item = self.input_statistics[i - 1]
                     break
-        P1_img, BP1_img, P1_name = self._load_img_pose(P1_item)
+        # P1_img, BP1_img, P1_name = self._load_img_pose(P1_item)
         P2_img, BP2_img, P2_name = self._load_img_pose(item)
 
         trans_resize = T.Compose([
             T.Resize((size_img, size_img)),
             T.ToTensor()
         ])
-        P1 = trans_resize(P1_img)  # the tensor containing source image
+        # P1 = trans_resize(P1_img)  # the tensor containing source image
         P2 = trans_resize(P2_img)  # the tensor containing target image
 
         # to add data augmentation
@@ -212,14 +216,18 @@ class iPERDataset(torch.utils.data.Dataset):
 
         # return imageOut, target_DR, target_DME
 
-        BP1 = _process_kpt(BP1_img)
+        # BP1 = _process_kpt(BP1_img)
         BP2 = _process_kpt(BP2_img)
 
-        BP1 = BP1.clone().resize_([19, size_img, size_img])
+        # BP1 = BP1.clone().resize_([19, size_img, size_img])
         BP2 = BP2.clone().resize_([19, size_img, size_img])
 
-        return {'P1': P1, 'BP1': BP1, 'P2': P2, 'BP2': BP2,
-                'P1_path': P1_name, 'P2_path': P2_name}
+        BP = BP2
+
+        return BP, BP
+
+        # return {'P1': P1, 'BP1': BP1, 'P2': P2, 'BP2': BP2,
+        #         'P1_path': P1_name, 'P2_path': P2_name}
 
     def __len__(self):
         return len(self.input_nm_list)
