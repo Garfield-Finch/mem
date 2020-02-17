@@ -1,15 +1,16 @@
 import argparse
-
+import os
 import torch
 from torch import nn, optim
-from torch.utils.data import DataLoader
-
 from torchvision import datasets, transforms, utils
 
 from tqdm import tqdm
 
 from vqvae import VQVAE
 from scheduler import CycleScheduler
+
+# from torch.utils.data import DataLoader
+from tz_utils.dataloader_tz import iPERLoader
 
 
 def train(epoch, loader, model, optimizer, scheduler, device):
@@ -59,6 +60,12 @@ def train(epoch, loader, model, optimizer, scheduler, device):
             with torch.no_grad():
                 out, _ = model(sample)
 
+            # For the sake of visualization, add all 19 channels to 1
+            sample = sample.sum(1) * 255
+            out = out.sum(1) * 255
+            sample = sample.unsqueeze(1)
+            out = out.unsqueeze(1)
+
             utils.save_image(
                 torch.cat([sample, out], 0),
                 f'sample/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
@@ -76,25 +83,16 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=560)
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
-    parser.add_argument('path', type=str)
+    parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
 
     args = parser.parse_args()
 
     print(args)
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
     device = 'cuda'
 
-    transform = transforms.Compose(
-        [
-            transforms.Resize(args.size),
-            transforms.CenterCrop(args.size),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-        ]
-    )
-
-    dataset = datasets.ImageFolder(args.path, transform=transform)
-    loader = DataLoader(dataset, batch_size=128, shuffle=True, num_workers=4)
+    loader, _ = iPERLoader(data_root='/p300/dataset/iPER/', batch=8).data_load()
 
     model = VQVAE(in_channel=19).to(device)
 
@@ -107,4 +105,4 @@ if __name__ == '__main__':
 
     for i in range(args.epoch):
         train(i, loader, model, optimizer, scheduler, device)
-        torch.save(model.state_dict(), f'checkpoint/vqvae_{str(i + 1).zfill(3)}.pt')
+        torch.save(model.state_dict(), f'checkpoint/pose/vqvae_{str(i + 1).zfill(3)}.pt')
