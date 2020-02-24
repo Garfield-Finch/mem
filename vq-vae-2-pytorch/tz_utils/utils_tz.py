@@ -21,7 +21,7 @@ def vis_pose_from_npy():
     im.save("your_file.png")
 
 
-def vis_pose(tsr_in, nm_file_out):
+def vis_pose_from_tensor(tsr_in, nm_file_out='yourfile'):
     img_np = tsr_in.to('cpu').numpy()
 
     img_np = np.sum(img_np, axis=1)

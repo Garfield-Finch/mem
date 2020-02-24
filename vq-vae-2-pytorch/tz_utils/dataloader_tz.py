@@ -101,7 +101,8 @@ class iPERDataset(torch.utils.data.Dataset):
         with open(nm_file, 'r') as f:
             self.lst_dir = f.readlines()
 
-        # note that all elements of self.lst_dir ends with '\n'
+        # NOTE that all elements of self.lst_dir ends with '\n'
+        # NOTE that the train.txt file should end with only ONE SINGLE blank line
 
         self.input_nm_list = []
         self.input_statistics = []  # contains the number of each sub dir of images, to obtain the P1 of each item P2
@@ -140,6 +141,7 @@ class iPERDataset(torch.utils.data.Dataset):
         kpt_map_pth = os.path.join(kpt_map_pth, nm_kpt_img)
         if not kpt_map_pth.endswith('.jpg'):
             kpt_map_pth = kpt_map_pth + '.jpg'
+
         kpt_map_pth = kpt_map_pth.replace('images_HD', 'kpt_imgs').replace('.jpg', '.npy')
         BP_img = np.load(kpt_map_pth)
 
@@ -219,8 +221,24 @@ class iPERDataset(torch.utils.data.Dataset):
         # BP1 = _process_kpt(BP1_img)
         BP2 = _process_kpt(BP2_img)
 
+        # resize the pose tensor channel by channel and concat them
+        def _resize_pose_tsr(pose_tsr):
+            trans_pose_tsr = T.Compose([
+                T.ToPILImage(),
+                T.Resize((size_img, size_img)),
+                T.ToTensor()
+            ])
+            num_channel = pose_tsr.shape[0]
+            ans = torch.zeros([num_channel, size_img, size_img])
+
+            for i in range(num_channel):
+                ans[i] = trans_pose_tsr(pose_tsr[i].unsqueeze(0))
+
+            return ans
+
         # BP1 = BP1.clone().resize_([19, size_img, size_img])
-        BP2 = BP2.clone().resize_([19, size_img, size_img])
+        # BP2 = BP2.clone().resize_([19, size_img, size_img])
+        BP2 = _resize_pose_tsr(BP2)
 
         BP = BP2
 

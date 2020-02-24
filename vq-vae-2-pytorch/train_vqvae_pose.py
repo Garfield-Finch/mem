@@ -68,7 +68,7 @@ def train(epoch, loader, model, optimizer, scheduler, device):
 
             utils.save_image(
                 torch.cat([sample, out], 0),
-                f'sample/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                f'sample/pose/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
@@ -89,10 +89,10 @@ if __name__ == '__main__':
 
     print(args)
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,3'
     device = 'cuda'
 
-    loader, _ = iPERLoader(data_root='/p300/dataset/iPER/', batch=8).data_load()
+    loader, _ = iPERLoader(data_root=args.path, batch=8).data_load()
 
     model = VQVAE(in_channel=19).to(device)
 
