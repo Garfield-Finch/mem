@@ -1,5 +1,5 @@
 import argparse
-
+import os
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
@@ -82,6 +82,8 @@ if __name__ == '__main__':
 
     print(args)
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,2'
+
     device = 'cuda'
 
     transform = transforms.Compose(
@@ -104,6 +106,9 @@ if __name__ == '__main__':
         scheduler = CycleScheduler(
             optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
         )
+
+    # model.load_state_dict(torch.load(PATH))
+    # model.eval()
 
     for i in range(args.epoch):
         train(i, loader, model, optimizer, scheduler, device)
