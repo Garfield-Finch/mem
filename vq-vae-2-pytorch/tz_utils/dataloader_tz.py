@@ -38,10 +38,12 @@ class iPERLoader:
             target_transform=self.tar_t
         )
 
-        # val_set = IDRiDClsDataset(
-        #     data_root=self.data_root,
-        #     subset='val',
-        #     transform=self.t)
+        val_set = iPERDataset(
+            data_root=self.data_root,
+            subset='val',
+            transform=self.t,
+            target_transform=self.tar_t
+        )
 
         # test_set = iPERDataset(
         #     data_root=self.data_root,
@@ -58,12 +60,12 @@ class iPERLoader:
             shuffle=True
         )
 
-        # val_loader = data.DataLoader(
-        #     dataset=val_set,
-        #     batch_size=self.batch,
-        #     num_workers=self.workers,
-        #     pin_memory=True
-        # )
+        val_loader = torch.utils.data.DataLoader(
+            dataset=val_set,
+            batch_size=self.batch,
+            num_workers=self.workers,
+            pin_memory=True
+        )
 
         # test_loader = torch.utils.data.DataLoader(
         #     dataset=test_set,
@@ -74,7 +76,7 @@ class iPERLoader:
         # )
 
         # return train_loader, val_loader, test_loader
-        return train_loader, train_loader
+        return train_loader, val_loader
 
 
 class iPERDataset(torch.utils.data.Dataset):
