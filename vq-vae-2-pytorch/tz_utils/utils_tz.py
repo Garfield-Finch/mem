@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
-import matplotlib
-import cv2
+# import matplotlib
+# import cv2
 import pickle
 import os
 from tqdm import tqdm
@@ -237,6 +237,8 @@ def _gen_skeleton():
                 file_nm = os.path.join(path_img_dir, 'kps.pkl').replace('images_HD', 'smpls')
 
                 print(f'file_nm:{file_nm}')
+                if file_nm == '/p300/dataset/iPER/smpls/001/1/1/kps.pkl':
+                    continue
 
                 # file_nm = "/p300/dataset/iPER/smpls/001/1/1/kps.pkl"
                 with open(file_nm, 'rb') as fo:  # 读取pkl文件数据
@@ -244,6 +246,8 @@ def _gen_skeleton():
                 data = dict_data["kps"]
                 # save_dir_path = "/p300/dataset/iPER/skeletons/001/1/1/"
                 save_dir_path = path_img_dir.replace('images_HD', 'skeletons')
+                if not os.path.exists(save_dir_path):
+                    os.makedirs(save_dir_path)
 
                 for img_nm in tqdm(lst_img):
                     img_number = int(img_nm[:-4])
@@ -257,5 +261,39 @@ def _gen_skeleton():
                     im.save(img_save_path)
 
 
+def _gen_namelist():
+    ans = []
+    root_path = "/p300/dataset/iPER/images_HD/"
+    lst_root_dir = os.listdir(root_path)
+    lst_root_dir.sort()
+
+    for root_dir in lst_root_dir:
+        if root_dir == '004':
+            break
+        path_root_dir = os.path.join(root_path, root_dir)
+        lst_sub_dir = os.listdir(path_root_dir)
+        lst_sub_dir.sort()
+
+        for sub_dir in lst_sub_dir:
+            path_sub_dir = os.path.join(root_path, root_dir, sub_dir)
+            lst_img_dir = os.listdir(path_sub_dir)
+            lst_img_dir.sort()
+
+            for img_dir in lst_img_dir:
+                path_img_dir = os.path.join(root_path, root_dir, sub_dir, img_dir)
+                lst_img = os.listdir(path_img_dir)
+                lst_img.sort()
+
+                item_nm_list = os.path.join(root_dir, sub_dir, img_dir)
+                ans.append(item_nm_list)
+
+    print(ans)
+    with open("/p300/dataset/iPER/images_HD/test.txt", 'w') as file:
+        for i in ans:
+            file.write(str(i) + '\n')
+
+
+
 if __name__ == "__main__":
-    _gen_skeleton()
+    # _gen_skeleton()
+    _gen_namelist()
