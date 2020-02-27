@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
 
 from tqdm import tqdm
+import visdom
 
 from scheduler import CycleScheduler
 from tz_utils.vqvae_tz import VQVAE
@@ -20,7 +21,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
     criterion = nn.MSELoss()
 
     latent_loss_weight = 0.25
-    sample_size = 25
+    sample_size = 6
 
     mse_sum = 0
     mse_n = 0
@@ -74,15 +75,46 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
         #########################
         # Evaluation
         #########################
-        # TODO to reconstruct the evaluation part
         if i % 100 == 0:
             model_img.eval()
-
             sample = img[:sample_size]
-
             with torch.no_grad():
                 out, _, _, _ = model_img(sample)
 
+            img_show = torch.cat([pose[:sample_size], transfer_out[:sample_size], img[:sample_size]])\
+                .to('cpu').detach().numpy() * 0.5 + 0.5
+            viz.images(
+                img_show,
+                win='transfer',
+                nrow=sample_size,
+                opts={
+                    'title': 'pose-transfer_out-gt',
+                }
+            )
+
+            img_show = torch.cat([img_out[:sample_size], img[:sample_size]]).to('cpu').detach().numpy()
+            print(img_show.shape)
+            img_show = img_show * 0.5 + 0.5
+            viz.images(
+                img_show,
+                win='recon-gt',
+                nrow=sample_size,
+                opts={
+                    'title': 'img_out-gt',
+                }
+            )
+
+            img_show = (torch.cat([sample, out]).to('cpu').detach().numpy() * 0.5 + 0.5) * 255
+            viz.images(
+                img_show,
+                win='testVis',
+                nrow=sample_size,
+                opts={
+                    'title': 'testVis',
+                }
+            )
+
+            # save image as file
             utils.save_image(
                 torch.cat([sample, out], 0),
                 f'sample/as/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
@@ -102,15 +134,18 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
-                                                               '/vqvae_010.pt')
+                                                               '/vqvae_012.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
-                                                              '/vqvae_002.pt')
+                                                              '/vqvae_003.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as'
                                                                    '/vqvae_002.pt')
+    parser.add_argument('--env', type=str, default='main')
 
     args = parser.parse_args()
 
     print(args)
+
+    viz = visdom.Visdom(server='10.10.10.100', port=33240, env=args.env)
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
