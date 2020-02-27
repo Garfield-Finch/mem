@@ -1,18 +1,20 @@
 import argparse
+import os
 
 import torch
 from torch import nn, optim
 from torch.utils.data import DataLoader
-
 from torchvision import datasets, transforms, utils
 
 from tqdm import tqdm
 
-from vqvae import VQVAE
 from scheduler import CycleScheduler
+from tz_utils.vqvae_tz import VQVAE
+from tz_utils.dataloader_v02 import iPERLoader
+from tz_utils.model_transfer import TransferModel
 
 
-def train(epoch, loader, model, optimizer, scheduler, device):
+def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimizer, scheduler, device):
     loader = tqdm(loader)
 
     criterion = nn.MSELoss()
@@ -23,51 +25,73 @@ def train(epoch, loader, model, optimizer, scheduler, device):
     mse_sum = 0
     mse_n = 0
 
-    for i, (img, label) in enumerate(loader):
-        model.zero_grad()
+    model_img.eval()
+    model_cond.eval()
+    model_transfer.train()
 
+    for i, (img, pose) in enumerate(loader):
         img = img.to(device)
+        pose = pose.to(device)
 
-        out, latent_loss = model(img)
-        recon_loss = criterion(out, img)
-        latent_loss = latent_loss.mean()
-        loss = recon_loss + latent_loss_weight * latent_loss
+        pose_out, pose_latent_loss, pose_quant_t, pose_quant_b = model_cond(pose)
+        img_out, img_latent_loss, img_quant_t, img_quant_b = model_img(img)
+        # img_quant.shape: [batch_size, 64, 64, 64]
+        # img_quant.shape: [batch_size, 64, 32, 32]
+
+        transfer_quant_t, transfer_quant_b = model_transfer(pose_quant_t, pose_quant_b)
+        transfer_input = (transfer_quant_t, transfer_quant_b)
+        transfer_out = model_img(transfer_input, mode='TRANSFER')
+
+        # TODO there is a superparameter here
+        loss_quant_recon = criterion(transfer_quant_t, img_quant_t) + criterion(transfer_quant_b, img_quant_b)
+        loss_image_recon = criterion(transfer_out, img)
+        # TODO there is another superparameter here
+        loss = loss_quant_recon + loss_image_recon
         loss.backward()
+
+        # img_recon_loss = criterion(img_out, img)
+        # img_latent_loss = img_latent_loss.mean()
+        # img_loss = img_recon_loss + latent_loss_weight * img_latent_loss
+        # img_loss.backward()
 
         if scheduler is not None:
             scheduler.step()
         optimizer.step()
 
-        mse_sum += recon_loss.item() * img.shape[0]
-        mse_n += img.shape[0]
+        # mse_sum += img_recon_loss.item() * img.shape[0]
+        # mse_n += img.shape[0]
 
         lr = optimizer.param_groups[0]['lr']
 
         loader.set_description(
             (
-                f'epoch: {epoch + 1}; mse: {recon_loss.item():.5f}; '
-                f'latent: {latent_loss.item():.3f}; avg mse: {mse_sum / mse_n:.5f}; '
+                # f'epoch: {epoch + 1}; mse: {img_recon_loss.item():.5f}; '
+                # f'latent: {img_latent_loss.item():.3f}; avg mse: {mse_sum / mse_n:.5f}; '
                 f'lr: {lr:.5f}'
             )
         )
 
+        #########################
+        # Evaluation
+        #########################
+        # TODO to reconstruct the evaluation part
         if i % 100 == 0:
-            model.eval()
+            model_img.eval()
 
             sample = img[:sample_size]
 
             with torch.no_grad():
-                out, _ = model(sample)
+                out, _, _, _ = model_img(sample)
 
             utils.save_image(
                 torch.cat([sample, out], 0),
-                f'sample/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                f'sample/as/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
-            model.train()
+            # model_img.train()
 
 
 if __name__ == '__main__':
@@ -76,11 +100,19 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=560)
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
-    parser.add_argument('path', type=str)
+    parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
+                                                               '/vqvae_010.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
+                                                              '/vqvae_002.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as'
+                                                                   '/vqvae_002.pt')
 
     args = parser.parse_args()
 
     print(args)
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
     device = 'cuda'
 
@@ -92,13 +124,28 @@ if __name__ == '__main__':
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ]
     )
+    # TODO use a small dataset here for sanity check
+    # Use a relatively larger training set
+    _, loader = iPERLoader(data_root=args.path, batch=25, transform=transform).data_load()
 
-    dataset = datasets.ImageFolder(args.path, transform=transform)
-    loader = DataLoader(dataset, batch_size=128, shuffle=True, num_workers=4)
+    # model for image
+    model_img = VQVAE().to(device)
+    model_img.load_state_dict(torch.load(args.model_img_path))
+    model_img.eval()
+    # optimizer_img = optim.Adam(model_img.parameters(), lr=args.lr)
 
-    model = VQVAE().to(device)
+    # model for condition
+    model_cond = VQVAE().to(device)
+    model_cond.load_state_dict(torch.load(args.model_cond_path))
+    model_cond.eval()
+    # optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    # transfer model
+    model_transfer = TransferModel().to(device)
+    # model_transfer.load_state_dict(torch.load(args.model_transfer_path))
+    # model_transfer.eval()
+    optimizer = optim.Adam(model_transfer.parameters(), lr=args.lr)
+
     scheduler = None
     if args.sched == 'cycle':
         scheduler = CycleScheduler(
@@ -106,5 +153,7 @@ if __name__ == '__main__':
         )
 
     for i in range(args.epoch):
-        train(i, loader, model, optimizer, scheduler, device)
-        torch.save(model.state_dict(), f'checkpoint/vqvae_{str(i + 1).zfill(3)}.pt')
+        train_transfer(epoch=i, loader=loader, model_transfer=model_transfer, model_img=model_img,
+                       model_cond=model_cond, optimizer=optimizer,
+                       scheduler=scheduler, device=device)
+        torch.save(model_transfer.state_dict(), f'checkpoint/as/vqvae_{str(i + 1).zfill(3)}.pt')
