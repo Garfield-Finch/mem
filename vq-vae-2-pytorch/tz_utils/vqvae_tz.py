@@ -188,14 +188,20 @@ class VQVAE(nn.Module):
             stride=4,
         )
 
-    def forward(self, input):
-        quant_t, quant_b, diff, _, _ = self.encode(input)
-        dec = self.decode(quant_t, quant_b)
-
-        # return dec, diff
-
-        # replace previous return
-        return dec, diff, quant_t, quant_b
+    def forward(self, input, mode='GENERATE'):
+        if mode == 'GENERATE':
+            quant_t, quant_b, diff, _, _ = self.encode(input)
+            dec = self.decode(quant_t, quant_b)
+            # return dec, diff
+            # replace previous return
+            return dec, diff, quant_t, quant_b
+        elif mode == 'TRANSFER':
+            quant_t, quant_b = input
+            dec = self.decode(quant_t, quant_b)
+            return dec
+        else:
+            print('mode type ERROR')
+            exit()
 
     def encode(self, input):
         enc_b = self.enc_b(input)
