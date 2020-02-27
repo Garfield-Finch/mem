@@ -268,8 +268,6 @@ def _gen_namelist():
     lst_root_dir.sort()
 
     for root_dir in lst_root_dir:
-        if root_dir == '004':
-            break
         path_root_dir = os.path.join(root_path, root_dir)
         lst_sub_dir = os.listdir(path_root_dir)
         lst_sub_dir.sort()
@@ -288,12 +286,23 @@ def _gen_namelist():
                 ans.append(item_nm_list)
 
     print(ans)
-    with open("/p300/dataset/iPER/images_HD/test.txt", 'w') as file:
-        for i in ans:
-            file.write(str(i) + '\n')
+    print(len(ans))
 
+    # # Write to file
+    with open("/p300/dataset/iPER/train_reserve.txt", 'w') as file:
+        for i in tqdm(range(124)):
+            file.write(str(ans[i]) + '\n')
+
+    with open("/p300/dataset/iPER/val_reserve.txt", 'w') as file:
+        for i in tqdm(range(124, 124 + 41)):
+            file.write(str(ans[i]) + '\n')
+
+    with open("/p300/dataset/iPER/test_reserve.txt", 'w') as file:
+        for i in tqdm(range(124 + 41, len(ans))):
+            file.write(str(ans[i]) + '\n')
 
 
 if __name__ == "__main__":
+    pass
     # _gen_skeleton()
-    _gen_namelist()
+    # _gen_namelist()
