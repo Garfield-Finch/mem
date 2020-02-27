@@ -243,7 +243,7 @@ class VQVAE(nn.Module):
 class TransferModel(nn.Module):
     def __init__(
         self,
-        in_channel=3,
+        in_channel=64,
         channel=128,
         n_res_block=2,
         n_res_channel=32,
@@ -253,27 +253,55 @@ class TransferModel(nn.Module):
     ):
         super().__init__()
 
-        # self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
-        # self.enc_t = Encoder(channel, channel, n_res_block, n_res_channel, stride=2)
-        # self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
+        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_t = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
         # self.quantize_t = Quantize(embed_dim, n_embed)
         # self.dec_t = Decoder(
         #     embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
         # )
-        self.quantize_conv_b = nn.Conv2d(embed_dim + channel, embed_dim, 1)
+        self.quantize_conv_b = nn.Conv2d(channel, embed_dim, 1)
         # self.quantize_b = Quantize(embed_dim, n_embed)
         # self.upsample_t = nn.ConvTranspose2d(
         #     embed_dim, embed_dim, 4, stride=2, padding=1
         # )
-        # self.dec = Decoder(
-        #     embed_dim + embed_dim,
-        #     in_channel,
-        #     channel,
-        #     n_res_block,
-        #     n_res_channel,
-        #     stride=4,
-        # )
+        self.dec_b = Decoder(
+            embed_dim,
+            in_channel,
+            channel,
+            n_res_block,
+            n_res_channel,
+            stride=4,
+        )
+        self.dec_t = Decoder(
+            embed_dim,
+            in_channel,
+            channel,
+            n_res_block,
+            n_res_channel,
+            stride=2,
+        )
 
     def forward(self, quant_t, quant_b):
+        """
+        :param quant_t: [batch_size, 64, 64, 64]
+        :param quant_b: [batch_size, 64, 32, 32]
+        :return:
+        """
 
-        return quant_t, quant_b
+        # quant_t : [batch_size=25, 64, 32, 32]
+        quant_t_1 = self.enc_t(quant_t)
+        # quant_t_1 : [batch_size=25, 128, 16, 16]
+        quant_t_2 = self.quantize_conv_t(quant_t_1)
+        # quant_t_2 : [batch_size=25, 64, 16, 16]
+        quant_t_out = self.dec_t(quant_t_2)
+        # quant_t : [batch_size=25, 64, 32, 32]
+
+        quant_b_1 = self.enc_b(quant_b)
+        # quant_t_1 : [batch_size=25, 128, 16, 16]
+        quant_b_2 = self.quantize_conv_b(quant_b_1)
+        # quant_b_2: [batch_size=25, 64, 16, 16])
+        quant_b_out = self.dec_b(quant_b_2)
+        # quant_b_out: [batch_size=25, 64, 64, 64])
+
+        return quant_t_out, quant_b_out
