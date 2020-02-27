@@ -16,15 +16,15 @@ import pickle
 
 class iPERLoader:
 
-    def __init__(self, data_root, batch=2, workers=8, img_size=256, transpose=None):
+    def __init__(self, data_root, batch=2, workers=8, img_size=256, transform=None):
         self.data_root = data_root
         self.batch = batch
         self.workers = workers
         self.img_size = img_size
 
         # ToAdd: images transform
-        if transpose != None:
-            self.t = transpose
+        if transform != None:
+            self.t = transform
         else:
             self.t = T.Compose([
                 T.Resize((self.img_size, self.img_size)),
