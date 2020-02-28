@@ -1,15 +1,16 @@
 import argparse
 import os
+import visdom
+from tqdm import tqdm
+
 import torch
 from torch import nn, optim
-from torch.utils.data import DataLoader
-
+# from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
-
-from tqdm import tqdm
 
 from vqvae import VQVAE
 from scheduler import CycleScheduler
+from tz_utils.dataloader_v02 import iPERLoader
 
 
 def train(epoch, loader, model, optimizer, scheduler, device):
@@ -59,15 +60,29 @@ def train(epoch, loader, model, optimizer, scheduler, device):
             with torch.no_grad():
                 out, _ = model(sample)
 
+            img_show = (torch.cat([sample, out]).to('cpu').detach().numpy() * 0.5 + 0.5) * 255
+            viz.images(
+                img_show,
+                win='sample-out',
+                nrow=sample_size,
+                opts={
+                    'title': 'sample-out',
+                }
+            )
+
             utils.save_image(
                 torch.cat([sample, out], 0),
-                f'sample/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                f'sample/app/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
             model.train()
+
+        # increase the sequence of saving model
+        if i % 200 == 0:
+            torch.save(model.state_dict(), f'checkpoint/app/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
 
 if __name__ == '__main__':
@@ -76,13 +91,16 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=560)
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
-    parser.add_argument('path', type=str)
+    parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
+    parser.add_argument('--env', type=str, default='main')
 
     args = parser.parse_args()
 
     print(args)
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,2'
+    viz = visdom.Visdom(server='10.10.10.100', port=33240, env=args.env)
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
     device = 'cuda'
 
@@ -95,8 +113,7 @@ if __name__ == '__main__':
         ]
     )
 
-    dataset = datasets.ImageFolder(args.path, transform=transform)
-    loader = DataLoader(dataset, batch_size=128, shuffle=True, num_workers=4)
+    loader, _ = iPERLoader(data_root=args.path, batch=128, transform=transform).data_load()
 
     model = VQVAE().to(device)
 
@@ -107,9 +124,11 @@ if __name__ == '__main__':
             optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
         )
 
-    # model.load_state_dict(torch.load(PATH))
-    # model.eval()
+    print('Loading Model...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app/vqvae_003.pt'))
+    model.eval()
+    print('Model Loading Complete')
 
-    for i in range(args.epoch):
+    for i in range(3, args.epoch):
         train(i, loader, model, optimizer, scheduler, device)
-        torch.save(model.state_dict(), f'checkpoint/vqvae_{str(i + 1).zfill(3)}.pt')
+        torch.save(model.state_dict(), f'checkpoint/app/vqvae_{str(i + 1).zfill(3)}.pt')
