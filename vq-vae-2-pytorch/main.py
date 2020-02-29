@@ -8,6 +8,7 @@ from torchvision import datasets, transforms, utils
 
 from tqdm import tqdm
 import visdom
+import numpy as np
 
 from scheduler import CycleScheduler
 
@@ -30,6 +31,10 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
     model_img.train()
     model_cond.train()
     model_transfer.train()
+
+    lst_loss_quant_recon = []
+    lst_loss_image_recon = []
+    lst_loss = []
 
     for i, (img, pose) in enumerate(loader):
 
@@ -57,22 +62,18 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
 
         loss_image_recon = criterion(transfer_out, img)
         # TODO there are 2 superparameters here
-        # TODO BIG PROBLEM, the 2 loss_quant is nan, don't know why
         loss_quant_recon = loss_quant_recon_t + loss_quant_recon_b
-        # loss = loss_quant_recon + loss_image_recon
-        loss = loss_image_recon
+        loss = loss_quant_recon + loss_image_recon
         loss.backward()
+
+        lst_loss_quant_recon.append(loss_quant_recon.item())
+        lst_loss_image_recon.append(loss_image_recon.item())
+        lst_loss.append(loss.item())
 
         # img_recon_loss = criterion(img_out, img)
         # img_latent_loss = img_latent_loss.mean()
         # img_loss = img_recon_loss + latent_loss_weight * img_latent_loss
         # img_loss.backward()
-        print('\n================== test point 2 =================')
-        print(f'loss:{loss.item()}')
-        print(f'loss_quant_recon_t:{loss_quant_recon.item()}')
-        print(f'transfer_quant_t:{transfer_quant_t.shape}')
-        print(f'img_quant_t:{img_quant_t.shape}')
-        print(f'tranfer.out:{transfer_out.shape}')
 
         if scheduler is not None:
             scheduler.step()
@@ -103,37 +104,20 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
             with torch.no_grad():
                 out, _, _, _ = model_img(sample)
 
-            img_show = torch.cat([pose[:sample_size], transfer_out[:sample_size], img[:sample_size]])\
+            img_show = torch.cat([pose[:sample_size], img_out[:sample_size],
+                                  transfer_out[:sample_size], img[:sample_size]])\
                 .to('cpu').detach().numpy() * 0.5 + 0.5
-            viz.images(
-                img_show,
-                win='transfer',
-                nrow=sample_size,
-                opts={
-                    'title': 'pose-transfer_out-gt',
+            viz.images(img_show, win='transfer', nrow=sample_size, opts={
+                    'title': 'pose-img_out-transfer_out-gt',
                 }
             )
 
             img_show = torch.cat([img_out[:sample_size], img[:sample_size]]).to('cpu').detach().numpy()
             img_show = img_show * 0.5 + 0.5
-            viz.images(
-                img_show,
-                win='recon-gt',
-                nrow=sample_size,
-                opts={
-                    'title': 'img_out-gt',
-                }
-            )
+            viz.images(img_show, win='recon-gt', nrow=sample_size, opts={'title': 'img_out-gt'})
 
             img_show = (torch.cat([sample, out]).to('cpu').detach().numpy() * 0.5 + 0.5) * 255
-            viz.images(
-                img_show,
-                win='testVis',
-                nrow=sample_size,
-                opts={
-                    'title': 'testVis',
-                }
-            )
+            viz.images(img_show, win='testVis', nrow=sample_size, opts={'title': 'testVis'})
 
             # save image as file
             img_show = torch.cat([pose[:sample_size], transfer_out[:sample_size], img[:sample_size]])
@@ -149,6 +133,19 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
             model_img.train()
             model_transfer.train()
 
+    #########################
+    # Plot loss to visdom
+    #########################
+    for plot_y, line_title in [(sum(lst_loss_quant_recon) / len(lst_loss_quant_recon), 'loss_quant_recon'),
+                               (sum(lst_loss_image_recon) / len(lst_loss_image_recon), 'loss_image_recon'),
+                               (sum(lst_loss) / len(lst_loss), 'loss')]:
+        viz.line(Y=np.array([plot_y]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss',
+                 opts=dict(title='loss', showlegend=True),
+                 update='append' if (epoch > 0) else None
+                 )
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -158,11 +155,11 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
-                                                               '/vqvae_023.pt')
+                                                               '/vqvae_026.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
-                                                              '/vqvae_011.pt')
+                                                              '/vqvae_016.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as'
-                                                                   '/vqvae_560.pt')
+                                                                   '/vqvae_181.pt')
     parser.add_argument('--env', type=str, default='main')
 
     args = parser.parse_args()
@@ -172,9 +169,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33240, env=args.env)
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '2'
-
     device = 'cuda'
 
+    BATCH_SIZE = 25
     transform = transforms.Compose(
         [
             transforms.Resize(args.size),
@@ -183,9 +180,8 @@ if __name__ == '__main__':
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ]
     )
-    # TODO use a small dataset here for sanity check
-    # Use a relatively larger training set
-    _, loader = iPERLoader(data_root=args.path, batch=25, transform=transform).data_load()
+
+    loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     # model for image
     model_img = VQVAE().to(device)
@@ -210,6 +206,8 @@ if __name__ == '__main__':
         scheduler = CycleScheduler(
             optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
         )
+
+    NUM_BATCH = loader.dataset.__len__() // BATCH_SIZE
 
     for i in range(args.epoch):
         train_transfer(epoch=i, loader=loader, model_transfer=model_transfer, model_img=model_img,
