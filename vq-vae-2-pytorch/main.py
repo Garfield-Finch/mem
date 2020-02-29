@@ -10,9 +10,10 @@ from tqdm import tqdm
 import visdom
 
 from scheduler import CycleScheduler
-from tz_utils.vqvae_tz import VQVAE
+
 from tz_utils.dataloader_v02 import iPERLoader
-from tz_utils.model_transfer import TransferModel
+from tz_utils.model_transfer import TransferModel, VQVAE
+# from tz_utils.vqvae_tz import VQVAE
 
 
 def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimizer, scheduler, device):
@@ -26,11 +27,16 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
     mse_sum = 0
     mse_n = 0
 
-    model_img.eval()
-    model_cond.eval()
+    model_img.train()
+    model_cond.train()
     model_transfer.train()
 
     for i, (img, pose) in enumerate(loader):
+
+        model_img.zero_grad()
+        model_cond.zero_grad()
+        model_transfer.zero_grad()
+
         img = img.to(device)
         pose = pose.to(device)
 
@@ -43,17 +49,30 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
         transfer_input = (transfer_quant_t, transfer_quant_b)
         transfer_out = model_img(transfer_input, mode='TRANSFER')
 
-        # TODO there is a superparameter here
-        loss_quant_recon = criterion(transfer_quant_t, img_quant_t) + criterion(transfer_quant_b, img_quant_b)
+        #######################
+        # calculate loss
+        #######################
+        loss_quant_recon_t = criterion(transfer_quant_t, img_quant_t.clone().detach())
+        loss_quant_recon_b = criterion(transfer_quant_b, img_quant_b.clone().detach())
+
         loss_image_recon = criterion(transfer_out, img)
-        # TODO there is another superparameter here
-        loss = loss_quant_recon + loss_image_recon
+        # TODO there are 2 superparameters here
+        # TODO BIG PROBLEM, the 2 loss_quant is nan, don't know why
+        loss_quant_recon = loss_quant_recon_t + loss_quant_recon_b
+        # loss = loss_quant_recon + loss_image_recon
+        loss = loss_image_recon
         loss.backward()
 
         # img_recon_loss = criterion(img_out, img)
         # img_latent_loss = img_latent_loss.mean()
         # img_loss = img_recon_loss + latent_loss_weight * img_latent_loss
         # img_loss.backward()
+        print('\n================== test point 2 =================')
+        print(f'loss:{loss.item()}')
+        print(f'loss_quant_recon_t:{loss_quant_recon.item()}')
+        print(f'transfer_quant_t:{transfer_quant_t.shape}')
+        print(f'img_quant_t:{img_quant_t.shape}')
+        print(f'tranfer.out:{transfer_out.shape}')
 
         if scheduler is not None:
             scheduler.step()
@@ -66,9 +85,12 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
 
         loader.set_description(
             (
+                f'epoch: {epoch + 1}; loss_quant_recon: {loss_quant_recon.item():.5f}; '
+                f'loss_image_recon: {loss_image_recon.item():.3f}; '
+                f'lr: {lr:.5f}'
                 # f'epoch: {epoch + 1}; mse: {img_recon_loss.item():.5f}; '
                 # f'latent: {img_latent_loss.item():.3f}; avg mse: {mse_sum / mse_n:.5f}; '
-                f'lr: {lr:.5f}'
+                # f'lr: {lr:.5f}'
             )
         )
 
@@ -93,7 +115,6 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
             )
 
             img_show = torch.cat([img_out[:sample_size], img[:sample_size]]).to('cpu').detach().numpy()
-            print(img_show.shape)
             img_show = img_show * 0.5 + 0.5
             viz.images(
                 img_show,
@@ -115,15 +136,18 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
             )
 
             # save image as file
+            img_show = torch.cat([pose[:sample_size], transfer_out[:sample_size], img[:sample_size]])
             utils.save_image(
-                torch.cat([sample, out], 0),
+                # torch.cat([sample, out], 0),
+                img_show,
                 f'sample/as/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
-            # model_img.train()
+            model_img.train()
+            model_transfer.train()
 
 
 if __name__ == '__main__':
@@ -134,11 +158,11 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
-                                                               '/vqvae_012.pt')
+                                                               '/vqvae_023.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
-                                                              '/vqvae_003.pt')
+                                                              '/vqvae_011.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as'
-                                                                   '/vqvae_002.pt')
+                                                                   '/vqvae_560.pt')
     parser.add_argument('--env', type=str, default='main')
 
     args = parser.parse_args()
@@ -177,8 +201,8 @@ if __name__ == '__main__':
 
     # transfer model
     model_transfer = TransferModel().to(device)
-    # model_transfer.load_state_dict(torch.load(args.model_transfer_path))
-    # model_transfer.eval()
+    model_transfer.load_state_dict(torch.load(args.model_transfer_path))
+    model_transfer.eval()
     optimizer = optim.Adam(model_transfer.parameters(), lr=args.lr)
 
     scheduler = None
