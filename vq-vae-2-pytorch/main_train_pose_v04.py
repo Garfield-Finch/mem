@@ -88,8 +88,8 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     device = 'cuda'
 
-    # TODO: Use a mini dataset set in the position of val_loader for sanity check of pose, to be changed back
-    _, loader = iPERLoader(data_root=args.path, batch=25).data_load()
+    # Use a relatively larger training set
+    loader, _ = iPERLoader(data_root=args.path, batch=25).data_load()
 
     model = VQVAE().to(device)
     # The below is the default parameters
@@ -100,8 +100,9 @@ if __name__ == '__main__':
     # embed_dim = 64,
     # n_embed = 512,
 
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_02/vqvae_035.pt'))
-    # model.eval()
+    print('Loading model...')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04/vqvae_011.pt'))
+    model.eval()
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
