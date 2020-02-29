@@ -124,7 +124,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
             utils.save_image(
                 # torch.cat([sample, out], 0),
                 img_show,
-                f'sample/as/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                f'sample/as_02/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
@@ -132,6 +132,12 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
 
             model_img.train()
             model_transfer.train()
+
+        #########################
+        # increase the sequence of saving model
+        #########################
+        if i % 200 == 0:
+            torch.save(model_transfer.state_dict(), f'checkpoint/as_02/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
     #########################
     # Plot loss to visdom
@@ -213,4 +219,4 @@ if __name__ == '__main__':
         train_transfer(epoch=i, loader=loader, model_transfer=model_transfer, model_img=model_img,
                        model_cond=model_cond, optimizer=optimizer,
                        scheduler=scheduler, device=device)
-        torch.save(model_transfer.state_dict(), f'checkpoint/as/vqvae_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_transfer.state_dict(), f'checkpoint/as_02/vqvae_{str(i + 1).zfill(3)}.pt')
