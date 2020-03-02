@@ -104,23 +104,9 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
             with torch.no_grad():
                 out, _, _, _ = model_img(sample)
 
-            img_show = torch.cat([pose[:sample_size], img_out[:sample_size],
-                                  transfer_out[:sample_size], img[:sample_size]])\
-                .to('cpu').detach().numpy() * 0.5 + 0.5
-            viz.images(img_show, win='transfer', nrow=sample_size, opts={
-                    'title': 'pose-img_out-transfer_out-gt',
-                }
-            )
-
-            img_show = torch.cat([img_out[:sample_size], img[:sample_size]]).to('cpu').detach().numpy()
-            img_show = img_show * 0.5 + 0.5
-            viz.images(img_show, win='recon-gt', nrow=sample_size, opts={'title': 'img_out-gt'})
-
-            img_show = (torch.cat([sample, out]).to('cpu').detach().numpy() * 0.5 + 0.5) * 255
-            viz.images(img_show, win='testVis', nrow=sample_size, opts={'title': 'testVis'})
-
             # save image as file
-            img_show = torch.cat([pose[:sample_size], transfer_out[:sample_size], img[:sample_size]])
+            img_show = torch.cat([pose[:sample_size], pose_out[:sample_size], img_out[:sample_size],
+                                  transfer_out[:sample_size], img[:sample_size]])
             utils.save_image(
                 # torch.cat([sample, out], 0),
                 img_show,
@@ -129,6 +115,14 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, optimiz
                 normalize=True,
                 range=(-1, 1),
             )
+
+            # viz pose-img_out-transfer_out-gt
+            img_show = img_show.to('cpu').detach().numpy()
+            img_show = (img_show * 0.5 + 0.5) * 255
+            viz.images(img_show, win='transfer', nrow=sample_size, opts={
+                'title': 'pose-img_out-transfer_out-gt',
+            }
+                       )
 
             model_img.train()
             model_transfer.train()
@@ -161,12 +155,13 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
-                                                               '/vqvae_026.pt')
+                                                               '/vqvae_071.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
-                                                              '/vqvae_016.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as'
-                                                                   '/vqvae_181.pt')
+                                                              '/vqvae_027.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as_02'
+                                                                   '/vqvae_018.pt')
     parser.add_argument('--env', type=str, default='main')
+    parser.add_argument('--gpu', type=str, default='0')
 
     args = parser.parse_args()
 
@@ -174,7 +169,7 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33240, env=args.env)
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
 
     BATCH_SIZE = 25
