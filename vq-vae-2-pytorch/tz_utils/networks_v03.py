@@ -265,10 +265,6 @@ class TransferEncoder(nn.Module):
                 nn.Dropout(0.02),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(channel // 2, channel, 3, padding=1),
-                # add dropout here
-                nn.Dropout(0.02),
-                # add ReLU here
-                nn.ReLU(inplace=True),
             ]
 
         for i in range(n_res_block):
