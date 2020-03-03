@@ -42,6 +42,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
     lst_loss_quant_recon = []
     lst_loss_image_recon = []
     lst_loss = []
+    lst_loss_D_t = []
+    lst_loss_D_b = []
 
     for i, (img, pose) in enumerate(loader):
         img = img.to(device)
@@ -136,6 +138,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         lst_loss_quant_recon.append(loss_quant_recon.item())
         lst_loss_image_recon.append(loss_image_recon.item())
         lst_loss.append(loss.item())
+        lst_loss_D_t.append(loss_D_t.item())
+        lst_loss_D_b.append(loss_D_b.item())
 
         #########################
         # Evaluation
@@ -185,7 +189,10 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
     #########################
     for plot_y, line_title in [(sum(lst_loss_quant_recon) / len(lst_loss_quant_recon), 'loss_quant_recon'),
                                (sum(lst_loss_image_recon) / len(lst_loss_image_recon), 'loss_image_recon'),
-                               (sum(lst_loss) / len(lst_loss), 'loss')]:
+                               (sum(lst_loss) / len(lst_loss), 'loss'),
+                               (sum(lst_loss_D_t) / len(lst_loss_D_t), 'loss_D_t'),
+                               (sum(lst_loss_D_b) / len(lst_loss_D_b), 'loss_D_b')
+                               ]:
         viz.line(Y=np.array([plot_y]), X=np.array([epoch]),
                  name=line_title,
                  win='loss',
@@ -272,3 +279,5 @@ if __name__ == '__main__':
                        optimizer=optimizer, optimizer_D_t=optimizer_D_t, optimizer_D_b=optimizer_D_b,
                        scheduler=scheduler, device=device)
         torch.save(model_transfer.state_dict(), f'checkpoint/as_04/vqvae_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_D_t.state_dict(), f'checkpoint/as_04/vqvae_Dt_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_D_b.state_dict(), f'checkpoint/as_04/vqvae_Db_{str(i + 1).zfill(3)}.pt')
