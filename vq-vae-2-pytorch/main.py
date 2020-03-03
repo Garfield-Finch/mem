@@ -1,3 +1,6 @@
+"""
+The Baseline of our idea.
+"""
 import argparse
 import os
 
@@ -155,7 +158,7 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
-                                                               '/vqvae_071.pt')
+                                                               '/vqvae_075.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
                                                               '/vqvae_027.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as_02'
@@ -167,7 +170,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    viz = visdom.Visdom(server='10.10.10.100', port=33240, env=args.env)
+    viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
