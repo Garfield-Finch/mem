@@ -18,7 +18,7 @@ import numpy as np
 from scheduler import CycleScheduler
 
 from tz_utils.dataloader_v02 import iPERLoader
-from tz_utils.networks_v02 import TransferModel, VQVAE, DiscriminatorModel
+from tz_utils.networks_v03 import TransferModel, VQVAE, DiscriminatorModel
 # from tz_utils.vqvae_tz import VQVAE
 
 
@@ -158,7 +158,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
             utils.save_image(
                 # torch.cat([sample, out], 0),
                 img_show,
-                f'sample/as_04/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                f'sample/as_05/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
@@ -179,7 +179,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         # increase the sequence of saving model
         #########################
         if i % 200 == 0:
-            torch.save(model_transfer.state_dict(), f'checkpoint/as_04/vqvae_{str(epoch + 1).zfill(3)}.pt')
+            torch.save(model_transfer.state_dict(), f'checkpoint/as_05/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
     #########################
     # Plot loss to visdom
@@ -216,7 +216,7 @@ if __name__ == '__main__':
     print(args)
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
-    viz.text('file: main_v02.py;\n exp: as_04;\n', win='board')
+    viz.text('file: main_v03.py;\n exp: as_05;\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
@@ -272,4 +272,4 @@ if __name__ == '__main__':
                        model_cond=model_cond, model_D_t=model_D_t, model_D_b=model_D_b,
                        optimizer=optimizer, optimizer_D_t=optimizer_D_t, optimizer_D_b=optimizer_D_b,
                        scheduler=scheduler, device=device)
-        torch.save(model_transfer.state_dict(), f'checkpoint/as_04/vqvae_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_transfer.state_dict(), f'checkpoint/as_05/vqvae_{str(i + 1).zfill(3)}.pt')
