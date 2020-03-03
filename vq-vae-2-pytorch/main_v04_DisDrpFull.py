@@ -162,7 +162,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
             utils.save_image(
                 # torch.cat([sample, out], 0),
                 img_show,
-                f'sample/as_05/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
@@ -183,7 +183,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         # increase the sequence of saving model
         #########################
         if i % 200 == 0:
-            torch.save(model_transfer.state_dict(), f'checkpoint/as_05/vqvae_{str(epoch + 1).zfill(3)}.pt')
+            torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
     #########################
     # Plot loss to visdom
@@ -222,8 +222,15 @@ if __name__ == '__main__':
 
     print(args)
 
+    EXPERIMENT_CODE = 'as_06'
+    if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
+        print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
+        os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
+        os.mkdir(f'sample/{EXPERIMENT_CODE}/')
+        print('Done')
+
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
-    viz.text('file: main_v03.py;\n exp: as_05;\n', win='board')
+    viz.text(f'file: main_v04.py;\n Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
@@ -239,7 +246,7 @@ if __name__ == '__main__':
     )
 
     # TODO use a little set for sanity check
-    _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     # model for image
     model_img = VQVAE().to(device)
@@ -279,6 +286,6 @@ if __name__ == '__main__':
                        model_cond=model_cond, model_D_t=model_D_t, model_D_b=model_D_b,
                        optimizer=optimizer, optimizer_D_t=optimizer_D_t, optimizer_D_b=optimizer_D_b,
                        scheduler=scheduler, device=device)
-        torch.save(model_transfer.state_dict(), f'checkpoint/as_05/vqvae_{str(i + 1).zfill(3)}.pt')
-        torch.save(model_D_t.state_dict(), f'checkpoint/as_05/vqvae_Dt_{str(i + 1).zfill(3)}.pt')
-        torch.save(model_D_b.state_dict(), f'checkpoint/as_05/vqvae_Db_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_D_t.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Dt_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_D_b.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Db_{str(i + 1).zfill(3)}.pt')
