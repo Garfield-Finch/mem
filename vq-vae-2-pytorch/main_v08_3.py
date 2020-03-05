@@ -111,7 +111,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         # back propagation for transfer module
         optimizer.zero_grad()
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
-               + weight_loss_GAN * (loss_GAN_t + loss_GAN_b)
+               + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
         loss.backward(retain_graph=True)
         optimizer.step()
 
@@ -178,9 +178,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
             img_show = (img_show * 0.5 + 0.5) * 255
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
-        #########################
         # increase the sequence of saving model
-        #########################
         if i % 200 == 0:
             torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
@@ -217,7 +215,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
                  win='loss_feature_mapping',
-                 opts=dict(title='feature mapping loss, w/o bp', showlegend=True),
+                 opts=dict(title='feature mapping loss', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
 
@@ -243,14 +241,15 @@ if __name__ == '__main__':
     print(args)
 
     DESCRIPTION = """
-    With a discriminator in latent space, n_layers decreased;
+    With a discriminator in latent space, n_layers decreased to 1 and 2 for t and b respectively; 
     add weight for loss_GAN being 1 and other components of loss are amplified by 100 times
+    add feature mapping loss
     use network_v02.py; 
     loss = weight_loss_recon(100) * (loss_quant_recon + loss_image_recon)\
                + weight_loss_GAN(1) * (loss_GAN_t + loss_GAN_b)
     """
 
-    EXPERIMENT_CODE = 'as_10_DSWl'
+    EXPERIMENT_CODE = 'as_12_DSWlFm'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -316,7 +315,7 @@ if __name__ == '__main__':
         )
 
     # Discriminator model
-    model_D_t = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
+    model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
     model_D_t = nn.DataParallel(model_D_t).cuda()
     # print('Loading model_D_t ...', end='')
     # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
