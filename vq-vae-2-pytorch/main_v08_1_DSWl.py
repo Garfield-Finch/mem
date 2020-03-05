@@ -27,7 +27,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
     #############################
     criterion = nn.MSELoss()
 
-    weight_loss_GAN = 0.00001
+    weight_loss_GAN = 1
+    weight_loss_recon = 100
     latent_loss_weight = 0.25
     sample_size = 6
 
@@ -47,6 +48,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
     lst_loss_GAN_b = []
     lst_loss_D_t = []
     lst_loss_D_b = []
+    lst_loss_GAN_t_resamble = []
+    lst_loss_GAN_b_resamble = []
 
     for i, (img, pose) in enumerate(loader):
         img = img.to(device)
@@ -93,6 +96,10 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         loss_D_b = criterion(discriminator_transfer_quant_b, gt_D_b_false)\
                    + criterion(discriminator_img_quant_b, gt_D_b_true)
 
+        # loss_GAN_resamble: feature mapping loss
+        loss_GAN_t_resamble = criterion(discriminator_transfer_quant_t, discriminator_img_quant_t)
+        loss_GAN_b_resamble = criterion(discriminator_transfer_quant_b, discriminator_img_quant_b)
+
         # img_recon_loss = criterion(img_out, img)
         # img_latent_loss = img_latent_loss.mean()
         # img_loss = img_recon_loss + latent_loss_weight * img_latent_loss
@@ -103,8 +110,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
 
         # back propagation for transfer module
         optimizer.zero_grad()
-        # TODO there are superparameters here
-        loss = loss_quant_recon + loss_image_recon + weight_loss_GAN * (loss_GAN_t + loss_GAN_b)
+        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
+               + weight_loss_GAN * (loss_GAN_t + loss_GAN_b)
         loss.backward(retain_graph=True)
         optimizer.step()
 
@@ -148,6 +155,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         lst_loss_D_b.append(loss_D_b.item())
         lst_loss_GAN_t.append(loss_GAN_t.item())
         lst_loss_GAN_b.append(loss_GAN_b.item())
+        lst_loss_GAN_t_resamble.append((loss_GAN_t_resamble.item()))
+        lst_loss_GAN_b_resamble.append((loss_GAN_b_resamble.item()))
 
         #########################
         # Evaluation
@@ -201,6 +210,16 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
                  opts=dict(title='loss_GAN', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_GAN_t_resamble, 'loss_GAN_t_resamble'),
+             (lst_loss_GAN_b_resamble, 'loss_GAN_b_resamble'),
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_feature_mapping',
+                 opts=dict(title='feature mapping loss, w/o bp', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
 
 
 if __name__ == '__main__':
@@ -211,9 +230,9 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
-                                                               '/vqvae_075.pt')
+                                                               '/vqvae_101.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
-                                                              '/vqvae_027.pt')
+                                                              '/vqvae_052.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as_07'
                                                                    '/vqvae_055.pt')
     parser.add_argument('--env', type=str, default='main')
@@ -224,12 +243,14 @@ if __name__ == '__main__':
     print(args)
 
     DESCRIPTION = """
-    With a discriminator in latent space;
+    With a discriminator in latent space, n_layers decreased;
     add weight for loss_GAN being 1 and other components of loss are amplified by 100 times
-    use network_v02.py
+    use network_v02.py; 
+    loss = weight_loss_recon(100) * (loss_quant_recon + loss_image_recon)\
+               + weight_loss_GAN(1) * (loss_GAN_t + loss_GAN_b)
     """
 
-    EXPERIMENT_CODE = 'as_09_DscS+3'
+    EXPERIMENT_CODE = 'as_10_DSWl'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -240,8 +261,8 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
-             f'Hostname: {socket.gethostname()}'
-             f'file: main_v07_DisS.py;\n '
+             f'Hostname: {socket.gethostname()}; '
+             f'file: main_v08_1_DSWl.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -295,7 +316,7 @@ if __name__ == '__main__':
         )
 
     # Discriminator model
-    model_D_t = DiscriminatorModel(in_channel=64).to(device)
+    model_D_t = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     model_D_t = nn.DataParallel(model_D_t).cuda()
     # print('Loading model_D_t ...', end='')
     # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
@@ -303,7 +324,7 @@ if __name__ == '__main__':
     # print('Done')
     optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
 
-    model_D_b = DiscriminatorModel(in_channel=64).to(device)
+    model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     # print('Loading model_D_b ...', end='')
     # model_D_b.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
     # model_D_b.eval()
