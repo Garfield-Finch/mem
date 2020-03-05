@@ -1,3 +1,7 @@
+"""
+There is one dropout layer with para=0.01 in TransferEncoder
+"""
+
 import torch
 from torch import nn
 from torch.nn import functional as F

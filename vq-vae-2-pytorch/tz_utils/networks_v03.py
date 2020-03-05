@@ -1,3 +1,6 @@
+"""
+There are two dropout layer in TransferEncoder for quant_b and one dropout layer for quant_t
+"""
 import torch
 from torch import nn
 from torch.nn import functional as F

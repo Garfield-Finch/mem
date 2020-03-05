@@ -1,3 +1,6 @@
+"""
+There is one dropout layer with para=0.01 in TransferEncoder
+"""
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -332,7 +335,8 @@ class TransferModel(nn.Module):
 
 
 class DiscriminatorModel(nn.Module):
-    def __init__(self, in_channel=3, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, getIntermFeat=False):
+    def __init__(self, in_channel=3, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False,
+                 getIntermFeat=False):
         super(DiscriminatorModel, self).__init__()
         self.getIntermFeat = getIntermFeat
         self.n_layers = n_layers
@@ -347,7 +351,8 @@ class DiscriminatorModel(nn.Module):
             nf = min(nf * 2, 512)
             sequence += [[
                 nn.Conv2d(nf_prev, nf, kernel_size=kw, stride=2, padding=padw),
-                norm_layer(nf), nn.LeakyReLU(0.2, True)
+                norm_layer(nf),
+                nn.LeakyReLU(0.2, True)
             ]]
 
         nf_prev = nf
