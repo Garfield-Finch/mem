@@ -1,6 +1,7 @@
-"""
-There is one dropout layer with para=0.01 in TransferEncoder
-"""
+'''
+The transfered vectors would be quantized by AppMem
+closed updating MEM
+'''
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -52,18 +53,18 @@ class Quantize(nn.Module):
         embed_ind = embed_ind.view(*input.shape[:-1])
         quantize = self.embed_code(embed_ind)
 
-        if self.training:
-            self.cluster_size.data.mul_(self.decay).add_(
-                1 - self.decay, embed_onehot.sum(0)
-            )
-            embed_sum = flatten.transpose(0, 1) @ embed_onehot
-            self.embed_avg.data.mul_(self.decay).add_(1 - self.decay, embed_sum)
-            n = self.cluster_size.sum()
-            cluster_size = (
-                (self.cluster_size + self.eps) / (n + self.n_embed * self.eps) * n
-            )
-            embed_normalized = self.embed_avg / cluster_size.unsqueeze(0)
-            self.embed.data.copy_(embed_normalized)
+        # if self.training:
+        #     self.cluster_size.data.mul_(self.decay).add_(
+        #         1 - self.decay, embed_onehot.sum(0)
+        #     )
+        #     embed_sum = flatten.transpose(0, 1) @ embed_onehot
+        #     self.embed_avg.data.mul_(self.decay).add_(1 - self.decay, embed_sum)
+        #     n = self.cluster_size.sum()
+        #     cluster_size = (
+        #         (self.cluster_size + self.eps) / (n + self.n_embed * self.eps) * n
+        #     )
+        #     embed_normalized = self.embed_avg / cluster_size.unsqueeze(0)
+        #     self.embed.data.copy_(embed_normalized)
 
         diff = (quantize.detach() - input).pow(2).mean()
         quantize = input + (quantize - input).detach()
@@ -243,42 +244,18 @@ class VQVAE(nn.Module):
 
         return dec
 
+    def seq2quant_decode(self, quant_t, quant_b):
+        quant_t = quant_t.permute(0, 2, 3, 1)
+        quant_t, _, _ = self.quantize_t(quant_t)
+        quant_t = quant_t.permute(0, 3, 1, 2)
 
-class TransferEncoder(nn.Module):
-    def __init__(self, in_channel, channel, n_res_block, n_res_channel, stride):
-        super().__init__()
+        quant_b = quant_b.permute(0, 2, 3, 1)
+        quant_b, _, _ = self.quantize_t(quant_b)
+        quant_b = quant_b.permute(0, 3, 1, 2)
 
-        if stride == 4:
-            blocks = [
-                nn.Conv2d(in_channel, channel // 2, 4, stride=2, padding=1),
-                # add dropout here
-                nn.Dropout(0.01),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channel // 2, channel, 4, stride=2, padding=1),
-                # add dropout here
-                # nn.Dropout(0.02),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channel, channel, 3, padding=1),
-            ]
+        dec = self.decode(quant_t, quant_b)
 
-        elif stride == 2:
-            blocks = [
-                nn.Conv2d(in_channel, channel // 2, 4, stride=2, padding=1),
-                # add dropout here
-                nn.Dropout(0.01),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channel // 2, channel, 3, padding=1),
-            ]
-
-        for i in range(n_res_block):
-            blocks.append(ResBlock(channel, n_res_channel))
-
-        blocks.append(nn.ReLU(inplace=True))
-
-        self.blocks = nn.Sequential(*blocks)
-
-    def forward(self, input):
-        return self.blocks(input)
+        return dec
 
 
 class TransferModel(nn.Module):
@@ -294,8 +271,8 @@ class TransferModel(nn.Module):
     ):
         super().__init__()
 
-        self.enc_b = TransferEncoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
-        self.enc_t = TransferEncoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_t = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
         # self.quantize_t = Quantize(embed_dim, n_embed)
         # self.dec_t = Decoder(
