@@ -202,8 +202,9 @@ class VQVAE(nn.Module):
             return dec, diff, quant_t, quant_b
         elif mode == 'TRANSFER':
             quant_t, quant_b = input
-            dec = self.decode(quant_t, quant_b)
-            return dec
+            self.seq2quant_decode(quant_t, quant_b)
+            # dec = self.decode(quant_t, quant_b)
+            # return dec
         else:
             print('mode type ERROR')
             exit()

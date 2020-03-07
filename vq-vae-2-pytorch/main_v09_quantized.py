@@ -61,9 +61,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         # quant_t.shape: [batch_size, 64, 32, 32]
 
         transfer_quant_t, transfer_quant_b = model_transfer(pose_quant_t, pose_quant_b)
-        # transfer_input = (transfer_quant_t, transfer_quant_b)
-        # transfer_out = model_img(transfer_input, mode='TRANSFER')
-        transfer_out = model_img.seq2quant_decode(transfer_quant_t, transfer_quant_b)
+        transfer_input = (transfer_quant_t, transfer_quant_b)
+        transfer_out = model_img(transfer_input, mode='TRANSFER')
         discriminator_transfer_quant_t = model_D_t(transfer_quant_t)
         discriminator_img_quant_t = model_D_t(img_quant_t)
         discriminator_transfer_quant_b = model_D_b(transfer_quant_b)
@@ -250,7 +249,7 @@ if __name__ == '__main__':
     + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
     """
 
-    EXPERIMENT_CODE = 'as_13_DFWlFm'
+    EXPERIMENT_CODE = 'as_14_seq2quant'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -268,7 +267,7 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
 
-    BATCH_SIZE = 64 * 2
+    BATCH_SIZE = 64
     transform = transforms.Compose(
         [
             transforms.Resize(args.size),
@@ -278,9 +277,9 @@ if __name__ == '__main__':
         ]
     )
 
-    # # TODOn use a little set for sanity check
-    # _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-    loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    # TODO use a little set for sanity check
+    _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     # model for image
     model_img = VQVAE().to(device)
