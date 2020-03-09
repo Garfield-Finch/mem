@@ -4,7 +4,6 @@ import socket
 
 import torch
 from torch import nn, optim
-from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
 
 from tqdm import tqdm
@@ -13,13 +12,12 @@ import numpy as np
 
 from scheduler import CycleScheduler
 
-from tz_utils.dataloader_v02 import iPERLoader
-from tz_utils.networks_v06 import TransferModel, VQVAE, DiscriminatorModel
-# from tz_utils.vqvae_tz import VQVAE
+from utils.dataloader_v03 import iPERLoader
+from utils.networks_v06 import TransferModel, VQVAE, DiscriminatorModel
 
 
-def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D_t, model_D_b,
-                   optimizer, optimizer_D_t, optimizer_D_b, scheduler, device):
+def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D_t, model_D_m, model_D_b,
+                   optimizer, optimizer_D_t, optimizer_D_m, optimizer_D_b, scheduler, device):
     loader = tqdm(loader)
 
     #############################
@@ -227,11 +225,11 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
-    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/pose_04'
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/pose_04'
                                                                '/vqvae_101.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/app'
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app'
                                                               '/vqvae_052.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq-vae-2-pytorch/checkpoint/as_07'
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/as_07'
                                                                    '/vqvae_055.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
@@ -279,7 +277,7 @@ if __name__ == '__main__':
         ]
     )
     # TODO use a little set for sanity check
-    _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    _, _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
     # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     NUM_BATCH = loader.dataset.__len__() // BATCH_SIZE
@@ -344,14 +342,17 @@ if __name__ == '__main__':
         print('model_discriminator Initialized.')
     model_D_t = nn.DataParallel(model_D_t).cuda()
     optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
+    model_D_m = nn.DataParallel(model_D_b).cuda()
+    optimizer_D_m = optim.Adam(model_D_b.parameters(), lr=args.lr)
     model_D_b = nn.DataParallel(model_D_b).cuda()
     optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
 
     for i in range(args.epoch):
         viz.text(f'epoch: {i}', win='Epoch')
         train_transfer(epoch=i, loader=loader, model_transfer=model_transfer, model_img=model_img,
-                       model_cond=model_cond, model_D_t=model_D_t, model_D_b=model_D_b,
-                       optimizer=optimizer, optimizer_D_t=optimizer_D_t, optimizer_D_b=optimizer_D_b,
+                       model_cond=model_cond, model_D_t=model_D_t, model_D_m=model_D_m, model_D_b=model_D_b,
+                       optimizer=optimizer, optimizer_D_t=optimizer_D_t,
+                       optimizer_D_m=optimizer_D_m, optimizer_D_b=optimizer_D_b,
                        scheduler=scheduler, device=device)
         torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D_t.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Dt_{str(i + 1).zfill(3)}.pt')
