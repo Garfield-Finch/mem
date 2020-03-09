@@ -104,8 +104,8 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         # loss_discriminator
         loss_D_t = criterion(discriminator_transfer_quant_t, gt_D_t_false) \
                    + criterion(discriminator_img_quant_t, gt_D_t_true)
-        loss_D_m = criterion(discriminator_transfer_quant_m, gt_D_t_false) \
-                   + criterion(discriminator_img_quant_m, gt_D_t_true)
+        loss_D_m = criterion(discriminator_transfer_quant_m, gt_D_m_false) \
+                   + criterion(discriminator_img_quant_m, gt_D_m_true)
         loss_D_b = criterion(discriminator_transfer_quant_b, gt_D_b_false)\
                    + criterion(discriminator_img_quant_b, gt_D_b_true)
 
@@ -276,6 +276,13 @@ if __name__ == '__main__':
     is_load_model_discriminator = False
     BATCH_SIZE = 8
     EXPERIMENT_CODE = 'as_15_mem3'
+    if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
+        print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
+        os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
+        os.mkdir(f'sample/{EXPERIMENT_CODE}/')
+        print('Done')
+    else:
+        print('EXPERIMENT_CODE already exits.')
     DESCRIPTION = """
         Add number of memory in the 2 VQ-VAE; 
         Decreased number of downsampling in transferModel; 
