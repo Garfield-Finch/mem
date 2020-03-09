@@ -46,7 +46,7 @@ class iPERLoader:
 
         test_set = iPERDataset(
             data_root=self.data_root,
-            subset='train',
+            subset='test',
             transform=self.t,
         )
 
@@ -70,7 +70,7 @@ class iPERLoader:
             batch_size=self.batch,
             num_workers=self.workers,
             pin_memory=True,
-            shuffle=False
+            shuffle=True
         )
 
         return train_loader, val_loader, test_loader
