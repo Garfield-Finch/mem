@@ -14,7 +14,7 @@ import numpy as np
 from scheduler import CycleScheduler
 
 from tz_utils.dataloader_v02 import iPERLoader
-from tz_utils.networks_v02 import TransferModel, VQVAE, DiscriminatorModel
+from tz_utils.networks_v06 import TransferModel, VQVAE, DiscriminatorModel
 # from tz_utils.vqvae_tz import VQVAE
 
 
@@ -55,13 +55,13 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         img = img.to(device)
         pose = pose.to(device)
 
-        pose_out, pose_latent_loss, pose_quant_t, pose_quant_b = model_cond(pose)
-        img_out, img_latent_loss, img_quant_t, img_quant_b = model_img(img)
+        pose_out, pose_latent_loss, pose_quant_t, pose_quant_m, pose_quant_b = model_cond(pose)
+        img_out, img_latent_loss, img_quant_t, img_quant_m, img_quant_b = model_img(img)
         # quant_b.shape: [batch_size, 64, 64, 64]
         # quant_t.shape: [batch_size, 64, 32, 32]
 
-        transfer_quant_t, transfer_quant_b = model_transfer(pose_quant_t, pose_quant_b)
-        transfer_input = (transfer_quant_t, transfer_quant_b)
+        transfer_quant_t, transfer_quant_m, transfer_quant_b = model_transfer(pose_quant_t, pose_quant_m, pose_quant_b)
+        transfer_input = (transfer_quant_t, transfer_quant_m, transfer_quant_b)
         transfer_out = model_img(transfer_input, mode='TRANSFER')
         discriminator_transfer_quant_t = model_D_t(transfer_quant_t)
         discriminator_img_quant_t = model_D_t(img_quant_t)
@@ -240,23 +240,26 @@ if __name__ == '__main__':
 
     print(args)
 
+    ##############################
+    # Dash Board
+    ##############################
+    is_load_model_img = False
+    is_load_model_cond = False
+    is_load_model_transfer = False
+    is_load_model_discriminator = False
+    BATCH_SIZE = 8
+    EXPERIMENT_CODE = 'as_15_mem3'
     DESCRIPTION = """
-    With a discriminator in latent space, n_layers decreased to 1 and 2 for t and b respectively; 
-    add weight for loss_GAN being 1 and other components of loss are amplified by 100 times
-    add feature mapping loss
-    use network_v02.py; 
-    loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
-    + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
-    """
-
-    EXPERIMENT_CODE = 'as_14_seq2quant'
-    if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
-        print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
-        os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
-        os.mkdir(f'sample/{EXPERIMENT_CODE}/')
-        print('Done')
-    else:
-        print('EXPERIMENT_CODE already exits.')
+        Add number of memory in the 2 VQ-VAE; 
+        Decreased number of downsampling in transferModel; 
+        Train all the modules together from scratch; 
+        With a discriminator in latent space, n_layers decreased to 1 and 2 for t and b respectively; 
+        add weight for loss_GAN being 1 and other components of loss are amplified by 100 times
+        add feature mapping loss
+        use network_v06.py; 
+        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
+        + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
+        """
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
@@ -267,7 +270,6 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
 
-    BATCH_SIZE = 64
     transform = transforms.Compose(
         [
             transforms.Resize(args.size),
@@ -276,35 +278,45 @@ if __name__ == '__main__':
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ]
     )
-
     # TODO use a little set for sanity check
     _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
     # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
+    NUM_BATCH = loader.dataset.__len__() // BATCH_SIZE
+
     # model for image
     model_img = VQVAE().to(device)
-    print('Loading model_img ...', end='')
-    model_img.load_state_dict(torch.load(args.model_img_path))
-    print('Done')
-    model_img.eval()
+    if is_load_model_img is True:
+        print('Loading model_img ...', end='')
+        model_img.load_state_dict(torch.load(args.model_img_path))
+        model_img.eval()
+        print('Done')
+    else:
+        print('model_img Initialized.')
     model_img = nn.DataParallel(model_img).cuda()
     # optimizer_img = optim.Adam(model_img.parameters(), lr=args.lr)
 
     # model for condition
     model_cond = VQVAE().to(device)
-    print('Loading model_cond ...', end='')
-    model_cond.load_state_dict(torch.load(args.model_cond_path))
-    print('Done')
-    model_cond.eval()
+    if is_load_model_cond is True:
+        print('Loading model_cond ...', end='')
+        model_cond.load_state_dict(torch.load(args.model_cond_path))
+        model_cond.eval()
+        print('Done')
+    else:
+        print('model_cond Initialized.')
     model_cond = nn.DataParallel(model_cond).cuda()
     # optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     # transfer model
     model_transfer = TransferModel().to(device)
-    # print('Loading model_transfer ...', end='')
-    # model_transfer.load_state_dict(torch.load(args.model_transfer_path))
-    # model_transfer.eval()
-    # print('Done')
+    if is_load_model_transfer is True:
+        print('Loading model_transfer ...', end='')
+        model_transfer.load_state_dict(torch.load(args.model_transfer_path))
+        model_transfer.eval()
+        print('Done')
+    else:
+        print('model_transfer Initialized.')
     model_transfer = nn.DataParallel(model_transfer).cuda()
     optimizer = optim.Adam(model_transfer.parameters(), lr=args.lr)
 
@@ -316,22 +328,24 @@ if __name__ == '__main__':
 
     # Discriminator model
     model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
-    model_D_t = nn.DataParallel(model_D_t).cuda()
-    # print('Loading model_D_t ...', end='')
-    # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
-    # model_D_t.eval()
-    # print('Done')
-    optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
-
+    model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    # print('Loading model_D_b ...', end='')
-    # model_D_b.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
-    # model_D_b.eval()
-    # print('Done')
+    if is_load_model_discriminator is True:
+        print('Loading model_D_t ...', end='')
+        model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
+        model_D_t.eval()
+        print('Done')
+
+        print('Loading model_D_b ...', end='')
+        model_D_b.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
+        model_D_b.eval()
+        print('Done')
+    else:
+        print('model_discriminator Initialized.')
+    model_D_t = nn.DataParallel(model_D_t).cuda()
+    optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
     model_D_b = nn.DataParallel(model_D_b).cuda()
     optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
-
-    NUM_BATCH = loader.dataset.__len__() // BATCH_SIZE
 
     for i in range(args.epoch):
         viz.text(f'epoch: {i}', win='Epoch')

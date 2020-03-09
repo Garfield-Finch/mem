@@ -1,5 +1,5 @@
 '''
-Add number of memory of each VQ-VAE
+number of memory increased to 3 in VQ-VAE
 '''
 import torch
 from torch import nn
@@ -52,18 +52,18 @@ class Quantize(nn.Module):
         embed_ind = embed_ind.view(*input.shape[:-1])
         quantize = self.embed_code(embed_ind)
 
-        # if self.training:
-        #     self.cluster_size.data.mul_(self.decay).add_(
-        #         1 - self.decay, embed_onehot.sum(0)
-        #     )
-        #     embed_sum = flatten.transpose(0, 1) @ embed_onehot
-        #     self.embed_avg.data.mul_(self.decay).add_(1 - self.decay, embed_sum)
-        #     n = self.cluster_size.sum()
-        #     cluster_size = (
-        #         (self.cluster_size + self.eps) / (n + self.n_embed * self.eps) * n
-        #     )
-        #     embed_normalized = self.embed_avg / cluster_size.unsqueeze(0)
-        #     self.embed.data.copy_(embed_normalized)
+        if self.training:
+            self.cluster_size.data.mul_(self.decay).add_(
+                1 - self.decay, embed_onehot.sum(0)
+            )
+            embed_sum = flatten.transpose(0, 1) @ embed_onehot
+            self.embed_avg.data.mul_(self.decay).add_(1 - self.decay, embed_sum)
+            n = self.cluster_size.sum()
+            cluster_size = (
+                (self.cluster_size + self.eps) / (n + self.n_embed * self.eps) * n
+            )
+            embed_normalized = self.embed_avg / cluster_size.unsqueeze(0)
+            self.embed.data.copy_(embed_normalized)
 
         diff = (quantize.detach() - input).pow(2).mean()
         quantize = input + (quantize - input).detach()
@@ -111,6 +111,10 @@ class Encoder(nn.Module):
                 nn.ReLU(inplace=True),
                 nn.Conv2d(channel // 2, channel, 3, padding=1),
             ]
+        elif stride == 0:
+            blocks = [
+                nn.Conv2d(in_channel, channel, 3, padding=1),
+            ]
 
         for i in range(n_res_block):
             blocks.append(ResBlock(channel, n_res_channel))
@@ -151,6 +155,11 @@ class Decoder(nn.Module):
             blocks.append(
                 nn.ConvTranspose2d(channel, out_channel, 4, stride=2, padding=1)
             )
+        # not the exact meaning of stride=0, to represent that 32*32 feature would not be down and up sampled
+        elif stride == 0:
+            blocks.append(
+                nn.Conv2d(channel, out_channel, 3, stride=1, padding=1)
+            )
 
         self.blocks = nn.Sequential(*blocks)
 
@@ -171,46 +180,46 @@ class VQVAE(nn.Module):
     ):
         super().__init__()
 
-        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.enc_m = Encoder(channel, channel, n_res_block, n_res_channel, stride=2)
         self.enc_t = Encoder(channel, channel, n_res_block, n_res_channel, stride=2)
+
         self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
         self.quantize_t = Quantize(embed_dim, n_embed)
-        self.dec_t = Decoder(
-            embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
-        )
+        self.dec_t = Decoder(embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2)
+
+        self.quantize_conv_m = nn.Conv2d(embed_dim + channel, embed_dim, 1)
+        self.quantize_m = Quantize(embed_dim, n_embed)
+        self.dec_m = Decoder(embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2)
+
         self.quantize_conv_b = nn.Conv2d(embed_dim + channel, embed_dim, 1)
         self.quantize_b = Quantize(embed_dim, n_embed)
-        self.upsample_t = nn.ConvTranspose2d(
-            embed_dim, embed_dim, 4, stride=2, padding=1
-        )
-        self.dec = Decoder(
-            embed_dim + embed_dim,
-            in_channel,
-            channel,
-            n_res_block,
-            n_res_channel,
-            stride=4,
-        )
+
+        self.upsample_t = nn.ConvTranspose2d(embed_dim, embed_dim, 4, stride=4, padding=0)
+        self.upsample_m = nn.ConvTranspose2d(embed_dim, embed_dim, 4, stride=2, padding=1)
+
+        self.dec = Decoder(embed_dim + embed_dim + embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=2)
 
     def forward(self, input, mode='GENERATE'):
         if mode == 'GENERATE':
-            quant_t, quant_b, diff, _, _ = self.encode(input)
-            dec = self.decode(quant_t, quant_b)
+            quant_t, quant_m, quant_b, diff, _, _ = self.encode(input)
+            dec = self.decode(quant_t, quant_m, quant_b)
             # return dec, diff
             # replace previous return
-            return dec, diff, quant_t, quant_b
+            return dec, diff, quant_t, quant_m, quant_b
         elif mode == 'TRANSFER':
-            quant_t, quant_b = input
-            self.seq2quant_decode(quant_t, quant_b)
-            # dec = self.decode(quant_t, quant_b)
-            # return dec
+            quant_t, quant_m, quant_b = input
+            # self.seq2quant_decode(quant_t, quant_m, quant_b)
+            dec = self.decode(quant_t, quant_m, quant_b)
+            return dec
         else:
             print('mode type ERROR')
             exit()
 
     def encode(self, input):
-        enc_b = self.enc_b(input)
-        enc_t = self.enc_t(enc_b)
+        enc_b = self.enc_b(input)  # [batch_size, 128, 128, 128]
+        enc_m = self.enc_m(enc_b)  # [batch_size, 128, 64, 64]
+        enc_t = self.enc_t(enc_m)  # [batch_size, 128, 32, 32]
 
         quant_t = self.quantize_conv_t(enc_t).permute(0, 2, 3, 1)
         quant_t, diff_t, id_t = self.quantize_t(quant_t)
@@ -218,18 +227,28 @@ class VQVAE(nn.Module):
         diff_t = diff_t.unsqueeze(0)
 
         dec_t = self.dec_t(quant_t)
-        enc_b = torch.cat([dec_t, enc_b], 1)
+        enc_m = torch.cat([dec_t, enc_m], 1)
+
+        quant_m = self.quantize_conv_m(enc_m).permute(0, 2, 3, 1)
+        quant_m, diff_m, id_m = self.quantize_m(quant_m)
+        quant_m = quant_m.permute(0, 3, 1, 2)
+        diff_m = diff_m.unsqueeze(0)
+
+        dec_m = self.dec_m(quant_m)
+        enc_b = torch.cat([dec_m, enc_b], 1)
 
         quant_b = self.quantize_conv_b(enc_b).permute(0, 2, 3, 1)
         quant_b, diff_b, id_b = self.quantize_b(quant_b)
         quant_b = quant_b.permute(0, 3, 1, 2)
         diff_b = diff_b.unsqueeze(0)
 
-        return quant_t, quant_b, diff_t + diff_b, id_t, id_b
+        return quant_t, quant_m, quant_b, diff_t + diff_b + diff_m, id_t, id_b
 
-    def decode(self, quant_t, quant_b):
+    def decode(self, quant_t, quant_m, quant_b):
         upsample_t = self.upsample_t(quant_t)
-        quant = torch.cat([upsample_t, quant_b], 1)
+        upsample_m = self.upsample_m(quant_m)
+        quant = torch.cat([upsample_t, upsample_m, quant_b], 1)
+
         dec = self.dec(quant)
 
         return dec
@@ -244,16 +263,20 @@ class VQVAE(nn.Module):
 
         return dec
 
-    def seq2quant_decode(self, quant_t, quant_b):
+    def seq2quant_decode(self, quant_t, quant_m, quant_b):
         quant_t = quant_t.permute(0, 2, 3, 1)
         quant_t, _, _ = self.quantize_t(quant_t)
         quant_t = quant_t.permute(0, 3, 1, 2)
 
+        quant_m = quant_m.permute(0, 2, 3, 1)
+        quant_m, _, _ = self.quantize_m(quant_m)
+        quant_m = quant_m.permute(0, 3, 1, 2)
+
         quant_b = quant_b.permute(0, 2, 3, 1)
-        quant_b, _, _ = self.quantize_t(quant_b)
+        quant_b, _, _ = self.quantize_b(quant_b)
         quant_b = quant_b.permute(0, 3, 1, 2)
 
-        dec = self.decode(quant_t, quant_b)
+        dec = self.decode(quant_t, quant_m, quant_b)
 
         return dec
 
@@ -272,43 +295,37 @@ class TransferModel(nn.Module):
         super().__init__()
 
         self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
-        self.enc_t = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.enc_m = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.enc_t = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=0)
         self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
         # self.quantize_t = Quantize(embed_dim, n_embed)
         # self.dec_t = Decoder(
         #     embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
         # )
         self.quantize_conv_b = nn.Conv2d(channel, embed_dim, 1)
+        self.quantize_conv_m = nn.Conv2d(channel, embed_dim, 1)
         # self.quantize_b = Quantize(embed_dim, n_embed)
         # self.upsample_t = nn.ConvTranspose2d(
         #     embed_dim, embed_dim, 4, stride=2, padding=1
         # )
         self.dec_b = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=4)
-        self.dec_t = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.dec_m = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.dec_t = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=0)
 
-    def forward(self, quant_t, quant_b):
-        """
-        :param quant_t: [batch_size, 64, 64, 64]
-        :param quant_b: [batch_size, 64, 32, 32]
-        :return:
-        """
-
-        # quant_t : [batch_size=25, 64, 32, 32]
+    def forward(self, quant_t, quant_m, quant_b):
         quant_t_1 = self.enc_t(quant_t)
-        # quant_t_1 : [batch_size=25, 128, 16, 16]
         quant_t_2 = self.quantize_conv_t(quant_t_1)
-        # quant_t_2 : [batch_size=25, 64, 16, 16]
         quant_t_out = self.dec_t(quant_t_2)
-        # quant_t : [batch_size=25, 64, 32, 32]
+
+        quant_m_1 = self.enc_m(quant_m)
+        quant_m_2 = self.quantize_conv_m(quant_m_1)
+        quant_m_out = self.dec_m(quant_m_2)
 
         quant_b_1 = self.enc_b(quant_b)
-        # quant_t_1 : [batch_size=25, 128, 16, 16]
         quant_b_2 = self.quantize_conv_b(quant_b_1)
-        # quant_b_2: [batch_size=25, 64, 16, 16])
         quant_b_out = self.dec_b(quant_b_2)
-        # quant_b_out: [batch_size=25, 64, 64, 64])
 
-        return quant_t_out, quant_b_out
+        return quant_t_out, quant_m_out, quant_b_out
 
 
 class DiscriminatorModel(nn.Module):
