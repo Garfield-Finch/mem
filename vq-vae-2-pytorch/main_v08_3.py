@@ -245,11 +245,11 @@ if __name__ == '__main__':
     add weight for loss_GAN being 1 and other components of loss are amplified by 100 times
     add feature mapping loss
     use network_v02.py; 
-    loss = weight_loss_recon(100) * (loss_quant_recon + loss_image_recon)\
-               + weight_loss_GAN(1) * (loss_GAN_t + loss_GAN_b)
+    loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
+    + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
     """
 
-    EXPERIMENT_CODE = 'as_12_DSWlFm'
+    EXPERIMENT_CODE = 'as_13_DFWlFm'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -267,7 +267,7 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
 
-    BATCH_SIZE = 64
+    BATCH_SIZE = 64 * 2
     transform = transforms.Compose(
         [
             transforms.Resize(args.size),
@@ -277,9 +277,9 @@ if __name__ == '__main__':
         ]
     )
 
-    # TODO use a little set for sanity check
-    _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-    # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    # # TODOn use a little set for sanity check
+    # _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     # model for image
     model_img = VQVAE().to(device)
