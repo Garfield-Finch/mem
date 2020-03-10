@@ -132,7 +132,7 @@ if __name__ == '__main__':
     ##############################
     # Dash Board
     ##############################
-    BATCH_SIZE = 32
+    BATCH_SIZE = 64 * 2
     EXPERIMENT_CODE = 'pose_05_mem3'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
