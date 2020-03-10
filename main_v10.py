@@ -313,10 +313,8 @@ if __name__ == '__main__':
         ]
     )
     # TODO use a little set for sanity check
-    _, _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    _, loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
     # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-
-    NUM_BATCH = loader.dataset.__len__() // BATCH_SIZE
 
     # model for image
     model_img = VQVAE().to(device)
@@ -395,7 +393,9 @@ if __name__ == '__main__':
                        optimizer=optimizer, optimizer_D_t=optimizer_D_t,
                        optimizer_D_m=optimizer_D_m, optimizer_D_b=optimizer_D_b,
                        scheduler=scheduler, device=device)
-        torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_img_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_cond.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_cond_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D_t.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Dt_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D_m.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Dm_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D_b.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Db_{str(i + 1).zfill(3)}.pt')
