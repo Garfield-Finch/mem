@@ -294,7 +294,7 @@ class TransferModel(nn.Module):
     ):
         super().__init__()
 
-        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_b = Encoder(in_channel, channel, 4, n_res_channel, stride=4)
         self.enc_m = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
         self.enc_t = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=0)
         self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
@@ -308,7 +308,7 @@ class TransferModel(nn.Module):
         # self.upsample_t = nn.ConvTranspose2d(
         #     embed_dim, embed_dim, 4, stride=2, padding=1
         # )
-        self.dec_b = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.dec_b = Decoder(embed_dim, in_channel, channel, 4, n_res_channel, stride=4)
         self.dec_m = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=2)
         self.dec_t = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=0)
 

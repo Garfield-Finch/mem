@@ -13,7 +13,7 @@ import numpy as np
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
 from utils.dataloader_v03 import iPERLoader
-from utils.networks_v06 import TransferModel, VQVAE, DiscriminatorModel
+from utils.networks_v07 import TransferModel, VQVAE, DiscriminatorModel
 
 
 def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D_t, model_D_m, model_D_b,
@@ -37,9 +37,13 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
     model_cond.train()
     model_transfer.train()
     model_D_t.train()
+    model_D_m.train()
     model_D_b.train()
 
     lst_loss_quant_recon = []
+    lst_loss_quant_recon_t = []
+    lst_loss_quant_recon_m = []
+    lst_loss_quant_recon_b = []
     lst_loss_image_recon = []
     lst_loss = []
     lst_loss_GAN_t = []
@@ -83,7 +87,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         loss_quant_recon_t = criterion(transfer_quant_t, img_quant_t.clone().detach())
         loss_quant_recon_m = criterion(transfer_quant_m, img_quant_m.clone().detach())
         loss_quant_recon_b = criterion(transfer_quant_b, img_quant_b.clone().detach())
-        loss_quant_recon = loss_quant_recon_t + loss_quant_recon_b
+        loss_quant_recon = loss_quant_recon_t + loss_quant_recon_m + loss_quant_recon_b
 
         # loss_image_recon
         loss_image_recon = criterion(transfer_out, img)
@@ -168,6 +172,9 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
 
         # for visdom visualization
         lst_loss_quant_recon.append(loss_quant_recon.item())
+        lst_loss_quant_recon_t.append(loss_quant_recon_t.item())
+        lst_loss_quant_recon_m.append(loss_quant_recon_m.item())
+        lst_loss_quant_recon_b.append(loss_quant_recon_b.item())
         lst_loss_image_recon.append(loss_image_recon.item())
         lst_loss.append(loss.item())
         lst_loss_D_t.append(loss_D_t.item())
@@ -243,6 +250,17 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
                  opts=dict(title='feature mapping loss', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_quant_recon_t, 'loss_quant_recon_t'),
+             (lst_loss_quant_recon_m, 'loss_quant_recon_m'),
+             (lst_loss_quant_recon_b, 'loss_quant_recon_b'),
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_quant_recon',
+                 opts=dict(title='loss_quant_recon', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
 
 
 if __name__ == '__main__':
@@ -253,9 +271,9 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
-                                                               '/vqvae_084.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02_mem3'
-                                                              '/vqvae_125.pt')
+                                                               '/vqvae_150.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/as_15_mem3'
+                                                              '/vqvae_091.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/as_07'
                                                                    '/vqvae_055.pt')
     parser.add_argument('--env', type=str, default='main')
@@ -272,8 +290,8 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    BATCH_SIZE = 8
-    EXPERIMENT_CODE = 'as_15_mem3'
+    BATCH_SIZE = 8 * 4
+    EXPERIMENT_CODE = 'as_16_mem3'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -283,12 +301,13 @@ if __name__ == '__main__':
         print('EXPERIMENT_CODE already exits.')
     DESCRIPTION = """
         Add number of memory in the 2 VQ-VAE; 
+        Add ResBlock for transfer_b; 
         Decreased number of downsampling in transferModel; 
         Train all the modules together from scratch; 
         With a discriminator in latent space, n_layers decreased to 1 and 2 for t and b respectively; 
         add weight for loss_GAN being 1 and other components of loss are amplified by 100 times
         add feature mapping loss
-        use network_v06.py; 
+        use network_v07.py; 
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
         + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
         """
@@ -296,7 +315,7 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v08_1_DSWl.py;\n '
+             f'file: main_v10.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -320,7 +339,7 @@ if __name__ == '__main__':
     model_img = nn.DataParallel(model_img).cuda()
     if is_load_model_img is True:
         print('Loading model_img ...', end='')
-        model_img.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/as_15_mem3/vqvae_img_339.pt'))
+        model_img.load_state_dict(torch.load(args.model_img_path))
         model_img.eval()
         print('Done')
     else:
