@@ -37,6 +37,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
     model_cond.train()
     model_transfer.train()
     model_D_t.train()
+    model_D_m.train()
     model_D_b.train()
 
     lst_loss_quant_recon = []
@@ -273,7 +274,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    BATCH_SIZE = 8 * 5
+    BATCH_SIZE = 8 * 4
     EXPERIMENT_CODE = 'as_15_mem3'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
@@ -321,7 +322,7 @@ if __name__ == '__main__':
     model_img = nn.DataParallel(model_img).cuda()
     if is_load_model_img is True:
         print('Loading model_img ...', end='')
-        model_img.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/as_15_mem3/vqvae_img_339.pt'))
+        model_img.load_state_dict(torch.load(args.model_img_path))
         model_img.eval()
         print('Done')
     else:
