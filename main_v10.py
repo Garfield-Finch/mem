@@ -83,7 +83,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         loss_quant_recon_t = criterion(transfer_quant_t, img_quant_t.clone().detach())
         loss_quant_recon_m = criterion(transfer_quant_m, img_quant_m.clone().detach())
         loss_quant_recon_b = criterion(transfer_quant_b, img_quant_b.clone().detach())
-        loss_quant_recon = loss_quant_recon_t + loss_quant_recon_b
+        loss_quant_recon = loss_quant_recon_t + loss_quant_recon_m + loss_quant_recon_b
 
         # loss_image_recon
         loss_image_recon = criterion(transfer_out, img)
@@ -156,12 +156,10 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
                 f'G_t: {loss_GAN_t.item():.3f}; '
                 f'G_m: {loss_GAN_m.item():.3f}; '
                 f'G_b: {loss_GAN_b.item():.3f}; '
-                f'\n'
                 f'D_t: {loss_D_t.item():.3f}; '
                 f'D_m: {loss_D_m.item():.3f}; '
                 f'D_b: {loss_D_b.item():.3f}; '
                 f'lr: {lr:.5f}'
-                f'\n'
                 # f'epoch: {epoch + 1}; mse: {img_recon_loss.item():.5f}; '
                 # f'latent: {img_latent_loss.item():.3f}; avg mse: {mse_sum / mse_n:.5f}; '
                 # f'lr: {lr:.5f}'
@@ -254,10 +252,10 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
-    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/pose_04'
-                                                               '/vqvae_101.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app'
-                                                              '/vqvae_052.pt')
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
+                                                               '/vqvae_150.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/as_15_mem3'
+                                                              '/vqvae_091.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/as_07'
                                                                    '/vqvae_055.pt')
     parser.add_argument('--env', type=str, default='main')
@@ -267,14 +265,15 @@ if __name__ == '__main__':
 
     print(args)
 
+
     ##############################
     # Dash Board
     ##############################
-    is_load_model_img = False
-    is_load_model_cond = False
+    is_load_model_img = True
+    is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    BATCH_SIZE = 8
+    BATCH_SIZE = 8 * 5
     EXPERIMENT_CODE = 'as_15_mem3'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
@@ -298,11 +297,12 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v08_1_DSWl.py;\n '
+             f'file: main_v10.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
+    torch.backends.cudnn.benchmark = True
 
     transform = transforms.Compose(
         [
@@ -318,18 +318,19 @@ if __name__ == '__main__':
 
     # model for image
     model_img = VQVAE().to(device)
+    model_img = nn.DataParallel(model_img).cuda()
     if is_load_model_img is True:
         print('Loading model_img ...', end='')
-        model_img.load_state_dict(torch.load(args.model_img_path))
+        model_img.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/as_15_mem3/vqvae_img_339.pt'))
         model_img.eval()
         print('Done')
     else:
         print('model_img Initialized.')
-    model_img = nn.DataParallel(model_img).cuda()
     # optimizer_img = optim.Adam(model_img.parameters(), lr=args.lr)
 
     # model for condition
     model_cond = VQVAE().to(device)
+    model_cond = nn.DataParallel(model_cond).cuda()
     if is_load_model_cond is True:
         print('Loading model_cond ...', end='')
         model_cond.load_state_dict(torch.load(args.model_cond_path))
@@ -337,7 +338,6 @@ if __name__ == '__main__':
         print('Done')
     else:
         print('model_cond Initialized.')
-    model_cond = nn.DataParallel(model_cond).cuda()
     # optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     # transfer model
