@@ -133,7 +133,7 @@ if __name__ == '__main__':
     # Dash Board
     ##############################
     BATCH_SIZE = 32
-    EXPERIMENT_CODE = 'app_02_mem3'
+    EXPERIMENT_CODE = 'as_15_mem3'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -153,6 +153,7 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
+    torch.backends.cudnn.benchmark = True
 
     transform = transforms.Compose(
         [
@@ -163,13 +164,12 @@ if __name__ == '__main__':
         ]
     )
     # TODO use a little set for sanity check
-    _, _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-    # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-
-    NUM_BATCH = loader.dataset.__len__() // BATCH_SIZE
+    # _, _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    _, loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     # model
     model = VQVAE().to(device)
+    model = nn.DataParallel(model).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
     if args.sched == 'cycle':
@@ -177,11 +177,10 @@ if __name__ == '__main__':
             optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
         )
 
-    # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app/vqvae_061.pt'))
-    # model.eval()
-    # print('Complete !')
-    model = nn.DataParallel(model).to(device)
+    print('Loading Model...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/as_15_mem3/vqvae_061.pt'))
+    model.eval()
+    print('Complete !')
 
     for i in range(args.epoch):
         viz.text(f'epoch: {i}', win='Epoch')
