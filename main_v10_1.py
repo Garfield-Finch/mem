@@ -278,6 +278,7 @@ if __name__ == '__main__':
                                                                    '/vqvae_055.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
+    parser.add_argument('--batch_size', type=int, default=8)
 
     args = parser.parse_args()
 
@@ -290,7 +291,6 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    BATCH_SIZE = 8 * 4
     EXPERIMENT_CODE = 'as_16_mem3'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
@@ -331,8 +331,8 @@ if __name__ == '__main__':
         ]
     )
     # TODO use a little set for sanity check
-    _, loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-    # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    _, loader, _ = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
+    # loader, _ = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
     # model for image
     model_img = VQVAE().to(device)

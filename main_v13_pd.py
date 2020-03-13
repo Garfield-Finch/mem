@@ -334,7 +334,7 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v10.py;\n '
+             f'file: main_v13.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
