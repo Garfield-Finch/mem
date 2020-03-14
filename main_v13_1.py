@@ -9,6 +9,7 @@ from torchvision import datasets, transforms, utils
 from tqdm import tqdm
 import visdom
 import numpy as np
+from PIL import Image
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
@@ -26,7 +27,7 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
     criterion = nn.MSELoss()
 
     weight_loss_GAN = 1
-    weight_loss_recon = 100
+    weight_loss_recon = 1
     latent_loss_weight = 0.25
     sample_size = 6
 
@@ -206,19 +207,20 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         #########################
         if i % 100 == 0:
             # save image as file
+            img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             img_show = torch.cat([pose[:sample_size], pose_out[:sample_size], img_out[:sample_size],
                                   transfer_out[:sample_size], img[:sample_size]])
             utils.save_image(
                 img_show,
-                f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                img_save_name,
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
             # viz pose-pose_recon-img_out-transfer_out-gt
-            img_show = img_show.to('cpu').detach().numpy()
-            img_show = (img_show * 0.5 + 0.5) * 255
+            # img_show = img_show.to('cpu').detach().numpy()
+            img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
         # increase the sequence of saving model
@@ -315,7 +317,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = True
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_18_mem3'
+    EXPERIMENT_CODE = 'as_19_Dp'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -323,19 +325,17 @@ if __name__ == '__main__':
         print('Done')
     else:
         print('EXPERIMENT_CODE already exits.')
-    DESCRIPTION = """
-        mem3 VQ-VAE;  
-        Add ResBlock for transfer_b; 
-        use network_v08.py; 
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
-        + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
-        """
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
-    viz.text(f'{DESCRIPTION}'
+    viz.text("""mem3 VQ-VAE;  
+             Add ResBlock for transfer_b; 
+             use network_v08.py; 
+             loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
+             + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
+             """
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v13.py;\n '
-             f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
+             f'file: main_v13_1.py; '
+             f'Experiment_Code: {EXPERIMENT_CODE}; ', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
@@ -357,7 +357,7 @@ if __name__ == '__main__':
     model_img = VQVAE().to(device)
     model_img = nn.DataParallel(model_img).cuda()
     if is_load_model_img is True:
-        print('Loading model_img ...', end='')
+        print('Loading model_img... ', end='')
         model_img.load_state_dict(torch.load(args.model_img_path))
         model_img.eval()
         print('Done')
@@ -369,7 +369,7 @@ if __name__ == '__main__':
     model_cond = VQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     if is_load_model_cond is True:
-        print('Loading model_cond ...', end='')
+        print('Loading model_cond... ', end='')
         model_cond.load_state_dict(torch.load(args.model_cond_path))
         model_cond.eval()
         print('Done')
@@ -381,7 +381,7 @@ if __name__ == '__main__':
     model_transfer = TransferModel().to(device)
     model_transfer = nn.DataParallel(model_transfer).to(device)
     if is_load_model_transfer is True:
-        print('Loading model_transfer ...', end='')
+        print('Loading model_transfer... ', end='')
         model_transfer.load_state_dict(torch.load(args.model_transfer_path))
         model_transfer.eval()
         print('Done')
@@ -416,7 +416,7 @@ if __name__ == '__main__':
         # model_D_b.eval()
         # print('Done')
 
-        print('Loading model_D_img ...', end='')
+        print('Loading model_D_img... ', end='')
         model_D_img.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
         model_D_img.eval()
         print('Done')
