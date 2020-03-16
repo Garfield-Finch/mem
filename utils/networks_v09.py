@@ -1,6 +1,7 @@
 '''
 number of memory increased to 3 in VQ-VAE
 Add ResBlock for TransferModel
+MultiscaleDiscriminator
 '''
 import torch
 from torch import nn
