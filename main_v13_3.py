@@ -9,11 +9,12 @@ from torchvision import datasets, transforms, utils
 from tqdm import tqdm
 import visdom
 import numpy as np
+from PIL import Image
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
 from utils.dataloader_v03 import iPERLoader
-from utils.networks_v07 import TransferModel, VQVAE, DiscriminatorModel
+from utils.networks_v09 import TransferModel, VQVAE, MultiscaleDiscriminator
 
 
 def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
@@ -208,17 +209,19 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
             # save image as file
             img_show = torch.cat([pose[:sample_size], pose_out[:sample_size], img_out[:sample_size],
                                   transfer_out[:sample_size], img[:sample_size]])
+            img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
                 img_show,
-                f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                img_save_name,
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
             # viz pose-pose_recon-img_out-transfer_out-gt
-            img_show = img_show.to('cpu').detach().numpy()
-            img_show = (img_show * 0.5 + 0.5) * 255
+            # img_show = img_show.to('cpu').detach().numpy()
+            # img_show = (img_show * 0.5 + 0.5) * 255
+            img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
         # increase the sequence of saving model
@@ -295,7 +298,7 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
-                                                               '/vqvae_236.pt')
+                                                               '/vqvae_508.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02'
                                                               '/vqvae_001.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
@@ -313,7 +316,7 @@ if __name__ == '__main__':
     ##############################
     is_load_model_img = True
     is_load_model_cond = True
-    is_load_model_transfer = False
+    is_load_model_transfer = True
     is_load_model_discriminator = False
     EXPERIMENT_CODE = 'as_26'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
@@ -399,7 +402,8 @@ if __name__ == '__main__':
     # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
     # model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     # model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    model_D_img = DiscriminatorModel(in_channel=3, n_layers=4).to(device)
+    model_D_img = MultiscaleDiscriminator(input_nc=3).to(device)
+    model_D_img = nn.DataParallel(model_D_img).cuda()
     if is_load_model_discriminator is True:
         # print('Loading model_D_t ...', end='')
         # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
@@ -428,7 +432,6 @@ if __name__ == '__main__':
     # optimizer_D_m = optim.Adam(model_D_m.parameters(), lr=args.lr)
     # model_D_b = nn.DataParallel(model_D_b).cuda()
     # optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
-    model_D_img = nn.DataParallel(model_D_img).cuda()
     optimizer_D_img = optim.Adam(model_D_img.parameters(), lr=args.lr)
 
     for i in range(args.epoch):
