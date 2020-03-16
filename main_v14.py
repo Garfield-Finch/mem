@@ -17,7 +17,9 @@ from utils.dataloader_v03 import iPERLoader
 from utils.networks_v08 import TransferModel, VQVAE, DiscriminatorModel
 
 
-def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
+def train(epoch, loader, model_transfer, model_img, model_cond,
+          model_D_img, model_D_t, model_D_m, model_D_b,
+          optimizer_D_t, optimizer_D_m, optimizer_D_b,
           optimizer, optimizer_D_img, scheduler, device):
     loader = tqdm(loader)
 
@@ -37,9 +39,9 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
     model_img.train()
     model_cond.train()
     model_transfer.train()
-    # model_D_t.train()
-    # model_D_m.train()
-    # model_D_b.train()
+    model_D_t.train()
+    model_D_m.train()
+    model_D_b.train()
     model_D_img.train()
 
     lst_loss_quant_recon = []
@@ -48,15 +50,15 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
     lst_loss_quant_recon_b = []
     lst_loss_image_recon = []
     lst_loss = []
-    # lst_loss_GAN_t = []
-    # lst_loss_GAN_m = []
-    # lst_loss_GAN_b = []
-    # lst_loss_D_t = []
-    # lst_loss_D_m = []
-    # lst_loss_D_b = []
-    # lst_loss_GAN_t_resamble = []
-    # lst_loss_GAN_m_resamble = []
-    # lst_loss_GAN_b_resamble = []
+    lst_loss_GAN_t = []
+    lst_loss_GAN_m = []
+    lst_loss_GAN_b = []
+    lst_loss_D_t = []
+    lst_loss_D_m = []
+    lst_loss_D_b = []
+    lst_loss_GAN_t_resamble = []
+    lst_loss_GAN_m_resamble = []
+    lst_loss_GAN_b_resamble = []
     lst_loss_D_img = []
     lst_loss_GAN_img = []
 
@@ -74,14 +76,14 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         transfer_input = (transfer_quant_t, transfer_quant_m, transfer_quant_b)
         transfer_out = model_img(transfer_input, mode='TRANSFER')
 
-        # discriminator_transfer_quant_t = model_D_t(transfer_quant_t)
-        # discriminator_img_quant_t = model_D_t(img_quant_t)
-        #
-        # discriminator_transfer_quant_m = model_D_m(transfer_quant_m)
-        # discriminator_img_quant_m = model_D_m(img_quant_m)
-        #
-        # discriminator_transfer_quant_b = model_D_b(transfer_quant_b)
-        # discriminator_img_quant_b = model_D_b(img_quant_b)
+        discriminator_transfer_quant_t = model_D_t(transfer_quant_t)
+        discriminator_img_quant_t = model_D_t(img_quant_t)
+
+        discriminator_transfer_quant_m = model_D_m(transfer_quant_m)
+        discriminator_img_quant_m = model_D_m(img_quant_m)
+
+        discriminator_transfer_quant_b = model_D_b(transfer_quant_b)
+        discriminator_img_quant_b = model_D_b(img_quant_b)
 
         #######################
         # calculate loss
@@ -96,35 +98,35 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         # loss_image_recon
         loss_image_recon = criterion(transfer_out, img)
 
-        # # utils to calculate loss GAN
-        # gt_D_t_false = torch.zeros(discriminator_transfer_quant_t.shape).cuda()
-        # gt_D_t_true = torch.ones(discriminator_transfer_quant_t.shape).cuda()
-        # gt_D_m_false = torch.zeros(discriminator_transfer_quant_m.shape).cuda()
-        # gt_D_m_true = torch.ones(discriminator_transfer_quant_m.shape).cuda()
-        # gt_D_b_false = torch.zeros(discriminator_transfer_quant_b.shape).cuda()
-        # gt_D_b_true = torch.ones(discriminator_transfer_quant_b.shape).cuda()
+        # utils to calculate loss GAN
+        gt_D_t_false = torch.zeros(discriminator_transfer_quant_t.shape).cuda()
+        gt_D_t_true = torch.ones(discriminator_transfer_quant_t.shape).cuda()
+        gt_D_m_false = torch.zeros(discriminator_transfer_quant_m.shape).cuda()
+        gt_D_m_true = torch.ones(discriminator_transfer_quant_m.shape).cuda()
+        gt_D_b_false = torch.zeros(discriminator_transfer_quant_b.shape).cuda()
+        gt_D_b_true = torch.ones(discriminator_transfer_quant_b.shape).cuda()
         gt_D_img_false = torch.zeros(img.shape).cuda()
         gt_D_img_true = torch.ones(img.shape).cuda()
-        #
-        # # loss_GAN
-        # loss_GAN_t = criterion(discriminator_transfer_quant_t, gt_D_t_true)
-        # loss_GAN_m = criterion(discriminator_transfer_quant_m, gt_D_m_true)
-        # loss_GAN_b = criterion(discriminator_transfer_quant_b, gt_D_b_true)
+
+        # loss_GAN
+        loss_GAN_t = criterion(discriminator_transfer_quant_t, gt_D_t_true)
+        loss_GAN_m = criterion(discriminator_transfer_quant_m, gt_D_m_true)
+        loss_GAN_b = criterion(discriminator_transfer_quant_b, gt_D_b_true)
         loss_GAN_img = criterion(transfer_out, gt_D_img_true)
-        #
-        # # loss_discriminator
-        # loss_D_t = criterion(discriminator_transfer_quant_t, gt_D_t_false) \
-        #            + criterion(discriminator_img_quant_t, gt_D_t_true)
-        # loss_D_m = criterion(discriminator_transfer_quant_m, gt_D_m_false) \
-        #            + criterion(discriminator_img_quant_m, gt_D_m_true)
-        # loss_D_b = criterion(discriminator_transfer_quant_b, gt_D_b_false)\
-        #            + criterion(discriminator_img_quant_b, gt_D_b_true)
+
+        # loss_discriminator
+        loss_D_t = criterion(discriminator_transfer_quant_t, gt_D_t_false) \
+                   + criterion(discriminator_img_quant_t, gt_D_t_true)
+        loss_D_m = criterion(discriminator_transfer_quant_m, gt_D_m_false) \
+                   + criterion(discriminator_img_quant_m, gt_D_m_true)
+        loss_D_b = criterion(discriminator_transfer_quant_b, gt_D_b_false)\
+                   + criterion(discriminator_img_quant_b, gt_D_b_true)
         loss_D_img = criterion(transfer_out, gt_D_img_false) + criterion(img, gt_D_img_true)
-        #
-        # # loss_GAN_resamble: feature mapping loss
-        # loss_GAN_t_resamble = criterion(discriminator_transfer_quant_t, discriminator_img_quant_t)
-        # loss_GAN_m_resamble = criterion(discriminator_transfer_quant_m, discriminator_img_quant_m)
-        # loss_GAN_b_resamble = criterion(discriminator_transfer_quant_b, discriminator_img_quant_b)
+
+        # loss_GAN_resamble: feature mapping loss
+        loss_GAN_t_resamble = criterion(discriminator_transfer_quant_t, discriminator_img_quant_t)
+        loss_GAN_m_resamble = criterion(discriminator_transfer_quant_m, discriminator_img_quant_m)
+        loss_GAN_b_resamble = criterion(discriminator_transfer_quant_b, discriminator_img_quant_b)
 
         # img_recon_loss = criterion(img_out, img)
         # img_latent_loss = img_latent_loss.mean()
@@ -137,22 +139,23 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         # back propagation for transfer module
         optimizer.zero_grad()
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
-               + weight_loss_GAN * (loss_GAN_img)
+               + weight_loss_GAN * (loss_GAN_img + loss_GAN_t + loss_GAN_m + loss_GAN_b)
         loss.backward(retain_graph=True)
         optimizer.step()
 
         # back propagation for Discriminator
-        # optimizer_D_t.zero_grad()
-        # loss_D_t.backward(retain_graph=True)
-        # optimizer_D_t.step()
-        #
-        # optimizer_D_m.zero_grad()
-        # loss_D_m.backward(retain_graph=True)
-        # optimizer_D_m.step()
-        #
-        # optimizer_D_b.zero_grad()
-        # loss_D_b.backward()
-        # optimizer_D_b.step()
+        optimizer_D_t.zero_grad()
+        loss_D_t.backward(retain_graph=True)
+        optimizer_D_t.step()
+
+        optimizer_D_m.zero_grad()
+        loss_D_m.backward(retain_graph=True)
+        optimizer_D_m.step()
+
+        optimizer_D_b.zero_grad()
+        loss_D_b.backward()
+        optimizer_D_b.step()
+
         optimizer_D_img.zero_grad()
         loss_D_img.backward()
         optimizer_D_img.step()
@@ -167,12 +170,12 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
                 f'epoch: {epoch + 1}; '
                 f'quant: {loss_quant_recon.item():.3f}; '
                 f'image: {loss_image_recon.item():.3f}; '
-                # f'G_t: {loss_GAN_t.item():.3f}; '
-                # f'G_m: {loss_GAN_m.item():.3f}; '
-                # f'G_b: {loss_GAN_b.item():.3f}; '
-                # f'D_t: {loss_D_t.item():.3f}; '
-                # f'D_m: {loss_D_m.item():.3f}; '
-                # f'D_b: {loss_D_b.item():.3f}; '
+                f'G_t: {loss_GAN_t.item():.3f}; '
+                f'G_m: {loss_GAN_m.item():.3f}; '
+                f'G_b: {loss_GAN_b.item():.3f}; '
+                f'D_t: {loss_D_t.item():.3f}; '
+                f'D_m: {loss_D_m.item():.3f}; '
+                f'D_b: {loss_D_b.item():.3f}; '
                 f'D_img: {loss_D_img.item():.3f}; '
                 f'G_img: {loss_GAN_img.item():.3f}; '
                 f'lr: {lr:.5f}'
@@ -189,15 +192,15 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         lst_loss_quant_recon_b.append(loss_quant_recon_b.item())
         lst_loss_image_recon.append(loss_image_recon.item())
         lst_loss.append(loss.item())
-        # lst_loss_D_t.append(loss_D_t.item())
-        # lst_loss_D_m.append(loss_D_m.item())
-        # lst_loss_D_b.append(loss_D_b.item())
-        # lst_loss_GAN_t.append(loss_GAN_t.item())
-        # lst_loss_GAN_m.append(loss_GAN_m.item())
-        # lst_loss_GAN_b.append(loss_GAN_b.item())
-        # lst_loss_GAN_t_resamble.append((loss_GAN_t_resamble.item()))
-        # lst_loss_GAN_m_resamble.append((loss_GAN_m_resamble.item()))
-        # lst_loss_GAN_b_resamble.append((loss_GAN_b_resamble.item()))
+        lst_loss_D_t.append(loss_D_t.item())
+        lst_loss_D_m.append(loss_D_m.item())
+        lst_loss_D_b.append(loss_D_b.item())
+        lst_loss_GAN_t.append(loss_GAN_t.item())
+        lst_loss_GAN_m.append(loss_GAN_m.item())
+        lst_loss_GAN_b.append(loss_GAN_b.item())
+        lst_loss_GAN_t_resamble.append((loss_GAN_t_resamble.item()))
+        lst_loss_GAN_m_resamble.append((loss_GAN_m_resamble.item()))
+        lst_loss_GAN_b_resamble.append((loss_GAN_b_resamble.item()))
         lst_loss_D_img.append(loss_D_img.item())
         lst_loss_GAN_img.append(loss_GAN_img.item())
 
@@ -241,31 +244,31 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
                  opts=dict(title='loss', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
-    # for line_num, (lst, line_title) in enumerate(
-    #         [(lst_loss_GAN_t, 'loss_GAN_t'),
-    #          (lst_loss_GAN_m, 'loss_GAN_m'),
-    #          (lst_loss_GAN_b, 'loss_GAN_b'),
-    #          (lst_loss_D_t, 'loss_D_t'),
-    #          (lst_loss_D_m, 'loss_D_m'),
-    #          (lst_loss_D_b, 'loss_D_b')
-    #          ]):
-    #     viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
-    #              name=line_title,
-    #              win='loss_GAN',
-    #              opts=dict(title='loss_GAN', showlegend=True),
-    #              update=None if (epoch == 0 and line_num == 0) else 'append'
-    #              )
-    # for line_num, (lst, line_title) in enumerate(
-    #         [(lst_loss_GAN_t_resamble, 'loss_GAN_t_resamble'),
-    #          (lst_loss_GAN_m_resamble, 'loss_GAN_m_resamble'),
-    #          (lst_loss_GAN_b_resamble, 'loss_GAN_b_resamble'),
-    #          ]):
-    #     viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
-    #              name=line_title,
-    #              win='loss_feature_mapping',
-    #              opts=dict(title='feature mapping loss', showlegend=True),
-    #              update=None if (epoch == 0 and line_num == 0) else 'append'
-    #              )
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_GAN_t, 'loss_GAN_t'),
+             (lst_loss_GAN_m, 'loss_GAN_m'),
+             (lst_loss_GAN_b, 'loss_GAN_b'),
+             (lst_loss_D_t, 'loss_D_t'),
+             (lst_loss_D_m, 'loss_D_m'),
+             (lst_loss_D_b, 'loss_D_b')
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_GAN',
+                 opts=dict(title='loss_GAN', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_GAN_t_resamble, 'loss_GAN_t_resamble'),
+             (lst_loss_GAN_m_resamble, 'loss_GAN_m_resamble'),
+             (lst_loss_GAN_b_resamble, 'loss_GAN_b_resamble'),
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_feature_mapping',
+                 opts=dict(title='feature mapping loss', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss_quant_recon_t, 'loss_quant_recon_t'),
              (lst_loss_quant_recon_m, 'loss_quant_recon_m'),
@@ -396,25 +399,26 @@ if __name__ == '__main__':
         )
 
     # Discriminator model
-    # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
-    # model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    # model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
+    import utils.networks_v07 as networks_v07
+    model_D_t = networks_v07.DiscriminatorModel(in_channel=64, n_layers=1).to(device)
+    model_D_m = networks_v07.DiscriminatorModel(in_channel=64, n_layers=2).to(device)
+    model_D_b = networks_v07.DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     model_D_img = DiscriminatorModel(in_channel=3, n_layers=4).to(device)
     if is_load_model_discriminator is True:
-        # print('Loading model_D_t ...', end='')
-        # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
-        # model_D_t.eval()
-        # print('Done')
-        #
-        # print('Loading model_D_m ...', end='')
-        # model_D_m.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dm')))
-        # model_D_m.eval()
-        # print('Done')
-        #
-        # print('Loading model_D_b ...', end='')
-        # model_D_b.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
-        # model_D_b.eval()
-        # print('Done')
+        print('Loading model_D_t ...', end='')
+        model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
+        model_D_t.eval()
+        print('Done')
+
+        print('Loading model_D_m ...', end='')
+        model_D_m.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dm')))
+        model_D_m.eval()
+        print('Done')
+
+        print('Loading model_D_b ...', end='')
+        model_D_b.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
+        model_D_b.eval()
+        print('Done')
 
         print('Loading model_D_img... ', end='')
         model_D_img.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
@@ -422,20 +426,21 @@ if __name__ == '__main__':
         print('Done')
     else:
         print('model_discriminator Initialized.')
-    # model_D_t = nn.DataParallel(model_D_t).cuda()
-    # optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
-    # model_D_m = nn.DataParallel(model_D_m).cuda()
-    # optimizer_D_m = optim.Adam(model_D_m.parameters(), lr=args.lr)
-    # model_D_b = nn.DataParallel(model_D_b).cuda()
-    # optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
+    model_D_t = nn.DataParallel(model_D_t).cuda()
+    optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
+    model_D_m = nn.DataParallel(model_D_m).cuda()
+    optimizer_D_m = optim.Adam(model_D_m.parameters(), lr=args.lr)
+    model_D_b = nn.DataParallel(model_D_b).cuda()
+    optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
     model_D_img = nn.DataParallel(model_D_img).cuda()
     optimizer_D_img = optim.Adam(model_D_img.parameters(), lr=args.lr)
 
     for i in range(args.epoch):
         viz.text(f'epoch: {i}', win='Epoch')
-        train(epoch=i, loader=loader, model_transfer=model_transfer, model_img=model_img,
-              model_cond=model_cond, model_D_img=model_D_img,
-              optimizer=optimizer, optimizer_D_img=optimizer_D_img,
+        train(epoch=i, loader=loader, model_transfer=model_transfer, model_img=model_img, model_cond=model_cond,
+              model_D_img=model_D_img, model_D_t=model_D_t, model_D_m=model_D_m, model_D_b=model_D_b,
+              optimizer=optimizer, optimizer_D_img=optimizer_D_img, optimizer_D_t=optimizer_D_t,
+              optimizer_D_m=optimizer_D_m, optimizer_D_b=optimizer_D_b,
               scheduler=scheduler, device=device)
         torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(i + 1).zfill(3)}.pt')
         torch.save(model_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_img_{str(i + 1).zfill(3)}.pt')

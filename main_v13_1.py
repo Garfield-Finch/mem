@@ -26,8 +26,8 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
     #############################
     criterion = nn.MSELoss()
 
-    weight_loss_GAN = 1
-    weight_loss_recon = 1
+    weight_loss_GAN = 10
+    weight_loss_recon = 50
     latent_loss_weight = 0.25
     sample_size = 6
 
@@ -298,10 +298,10 @@ if __name__ == '__main__':
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
                                                                '/vqvae_236.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02_mem3'
-                                                              '/vqvae_287.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
-                                                                   '/vqvae_trans_560.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02'
+                                                              '/vqvae_001.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint/as_19_Dp'
+                                                                   '/vqvae_trans_208.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
     parser.add_argument('--batch_size', type=int, default=8)
@@ -317,7 +317,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = True
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_19_Dp'
+    EXPERIMENT_CODE = 'as_22_Dp'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -357,7 +357,7 @@ if __name__ == '__main__':
     model_img = VQVAE().to(device)
     model_img = nn.DataParallel(model_img).cuda()
     if is_load_model_img is True:
-        print('Loading model_img... ', end='')
+        print(f'Loading model_img... {args.model_img_path} ', end='')
         model_img.load_state_dict(torch.load(args.model_img_path))
         model_img.eval()
         print('Done')
@@ -369,7 +369,7 @@ if __name__ == '__main__':
     model_cond = VQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     if is_load_model_cond is True:
-        print('Loading model_cond... ', end='')
+        print(f'Loading model_cond...  {args.model_cond_path} ', end='')
         model_cond.load_state_dict(torch.load(args.model_cond_path))
         model_cond.eval()
         print('Done')
@@ -381,7 +381,7 @@ if __name__ == '__main__':
     model_transfer = TransferModel().to(device)
     model_transfer = nn.DataParallel(model_transfer).to(device)
     if is_load_model_transfer is True:
-        print('Loading model_transfer... ', end='')
+        print(f'Loading model_transfer... {args.model_transfer_path} ', end='')
         model_transfer.load_state_dict(torch.load(args.model_transfer_path))
         model_transfer.eval()
         print('Done')
