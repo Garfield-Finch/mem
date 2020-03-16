@@ -3,15 +3,17 @@ import os
 import visdom
 from tqdm import tqdm
 import socket
+import numpy as np
+from PIL import Image
 
 import torch
 from torch import nn, optim
 # from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
 
-from vqvae import VQVAE
-from scheduler import CycleScheduler
-from tz_utils.dataloader_v02 import iPERLoader
+from utils.vqvae import VQVAE
+from vq_vae_2_pytorch.scheduler import CycleScheduler
+from utils.dataloader_v03 import iPERLoader
 
 
 def train(epoch, loader, model, optimizer, scheduler, device):
@@ -71,13 +73,16 @@ def train(epoch, loader, model, optimizer, scheduler, device):
             #     }
             # )
 
+            img_save_name = f'sample/app/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
                 torch.cat([sample, out], 0),
-                f'sample/app/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                img_save_name,
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
+            img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
+            viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'gt-sample'})
 
             model.train()
 
@@ -99,11 +104,12 @@ if __name__ == '__main__':
 
     print(args)
 
-    # viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
+    viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3'
 
     device = 'cuda'
+    torch.backends.cudnn.benchmark = True
 
     transform = transforms.Compose(
         [
@@ -114,9 +120,10 @@ if __name__ == '__main__':
         ]
     )
 
-    loader, _ = iPERLoader(data_root=args.path, batch=64, transform=transform).data_load()
+    loader, _, _ = iPERLoader(data_root=args.path, batch=128, transform=transform).data_load()
 
     model = VQVAE().to(device)
+    model = nn.DataParallel(model).cuda()
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
@@ -125,11 +132,11 @@ if __name__ == '__main__':
             optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
         )
 
-    print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app/vqvae_061.pt'))
-    model.eval()
-    print('Complete !')
+    # print('Loading Model...', end='')
+    # model.load_state_dict(torch.load('/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app/vqvae_061.pt'))
+    # model.eval()
+    # print('Complete !')
 
-    for i in range(60, args.epoch):
+    for i in range(args.epoch):
         train(i, loader, model, optimizer, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/app/vqvae_{str(i + 1).zfill(3)}.pt')
