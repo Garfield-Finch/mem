@@ -9,6 +9,7 @@ from torchvision import datasets, transforms, utils
 from tqdm import tqdm
 import visdom
 import numpy as np
+from PIL import Image
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
@@ -214,17 +215,19 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
             # save image as file
             img_show = torch.cat([pose[:sample_size], pose_out[:sample_size], img_out[:sample_size],
                                   transfer_out[:sample_size], img[:sample_size]])
+            img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
                 img_show,
-                f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                img_save_name,
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
             # viz pose-pose_recon-img_out-transfer_out-gt
-            img_show = img_show.to('cpu').detach().numpy()
-            img_show = (img_show * 0.5 + 0.5) * 255
+            # img_show = img_show.to('cpu').detach().numpy()
+            # img_show = (img_show * 0.5 + 0.5) * 255
+            img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
         # increase the sequence of saving model
