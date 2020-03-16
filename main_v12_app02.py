@@ -4,6 +4,7 @@ import visdom
 from tqdm import tqdm
 import socket
 import numpy as np
+from PIL import Image
 
 import torch
 from torch import nn, optim
@@ -76,19 +77,21 @@ def train(epoch, loader, model, optimizer, scheduler, device):
             # with torch.no_grad():
             #     out, _ = model(sample)
 
+            img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             img_show = torch.cat([img[:sample_size], out[:sample_size]], 0)
             utils.save_image(
                 img_show,
-                f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                img_save_name,
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
             # viz pose-pose_recon-img_out-transfer_out-gt
-            img_show = img_show.to('cpu').detach().numpy()
-            img_show = (img_show * 0.5 + 0.5) * 255
-            viz.images(img_show, win='img', nrow=sample_size, opts={'title': 'gt-img_out'})
+            # img_show = img_show.to('cpu').detach().numpy()
+            # img_show = (img_show * 0.5 + 0.5) * 255
+            img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
+            viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'gt-sample'})
 
             model.train()
 
@@ -133,7 +136,7 @@ if __name__ == '__main__':
     # Dash Board
     ##############################
     BATCH_SIZE = 32
-    EXPERIMENT_CODE = 'as_15_mem3'
+    EXPERIMENT_CODE = 'app_02'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -148,7 +151,7 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v12_img.py;\n '
+             f'file: main_v12_app02.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -163,9 +166,9 @@ if __name__ == '__main__':
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ]
     )
-    # TODO use a little set for sanity check
+    # TODOn use a little set for sanity check
     # _, _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-    _, loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    loader, _, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     # model
     model = VQVAE().to(device)
@@ -178,7 +181,7 @@ if __name__ == '__main__':
         )
 
     print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/as_15_mem3/vqvae_061.pt'))
+    model.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/app_02_mem3/vqvae_560.pt'))
     model.eval()
     print('Complete !')
 
