@@ -134,11 +134,17 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
             scheduler.step()
 
         # back propagation for transfer module
-        optimizer.zero_grad()
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
-               + weight_loss_GAN * (loss_GAN_img)
-        loss.backward(retain_graph=True)
-        optimizer.step()
+        if i % 5 == 0:
+            optimizer.zero_grad()
+            loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
+                   + weight_loss_GAN * (loss_GAN_img)
+            loss.backward(retain_graph=True)
+            optimizer.step()
+        else:
+            loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) \
+                   + weight_loss_GAN * (loss_GAN_img)
+            loss.backward(retain_graph=True)
+            optimizer.zero_grad()
 
         # back propagation for Discriminator
         # optimizer_D_t.zero_grad()
@@ -315,7 +321,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = True
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_17_mem3'
+    EXPERIMENT_CODE = 'as_24'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -325,10 +331,10 @@ if __name__ == '__main__':
         print('EXPERIMENT_CODE already exits.')
     DESCRIPTION = """
         mem3 VQ-VAE;  
-        Add ResBlock for transfer_b; 
         use network_v07.py; 
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
         + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
+        update frequency D = 5 * G
         """
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
@@ -399,7 +405,7 @@ if __name__ == '__main__':
     # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
     # model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     # model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    model_D_img = DiscriminatorModel(in_channel=3).to(device)
+    model_D_img = DiscriminatorModel(in_channel=3, n_layers=4).to(device)
     if is_load_model_discriminator is True:
         # print('Loading model_D_t ...', end='')
         # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
