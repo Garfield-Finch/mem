@@ -296,8 +296,8 @@ if __name__ == '__main__':
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
                                                                '/vqvae_236.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02_mem3'
-                                                              '/vqvae_287.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02'
+                                                              '/vqvae_001.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
@@ -313,9 +313,9 @@ if __name__ == '__main__':
     ##############################
     is_load_model_img = True
     is_load_model_cond = True
-    is_load_model_transfer = True
+    is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_24'
+    EXPERIMENT_CODE = 'as_25_scratch'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
