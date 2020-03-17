@@ -148,7 +148,7 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v12_img.py;\n '
+             f'file: main_v11_pose_05.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -162,12 +162,13 @@ if __name__ == '__main__':
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ]
     )
-    # TODO use a little set for sanity check
-    _, _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
-    # loader, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    # TODOn use a little set for sanity check
+    # _, _, loader = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
+    loader, _, _ = iPERLoader(data_root=args.path, batch=BATCH_SIZE, transform=transform).data_load()
 
     # model
     model = VQVAE().to(device)
+    model = nn.DataParallel(model).to(device)
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
     if args.sched == 'cycle':
@@ -175,11 +176,11 @@ if __name__ == '__main__':
             optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
         )
 
-    # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app/vqvae_061.pt'))
-    # model.eval()
-    # print('Complete !')
-    model = nn.DataParallel(model).to(device)
+    print('Loading Model...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_05_mem3/vqvae_560.pt'))
+    model.eval()
+    print('Complete !')
+
 
     for i in range(args.epoch):
         viz.text(f'epoch: {i}', win='Epoch')
