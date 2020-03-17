@@ -304,8 +304,8 @@ if __name__ == '__main__':
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
                                                                '/vqvae_508.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02'
-                                                              '/vqvae_001.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02_mem3'
+                                                              '/vqvae_560.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')

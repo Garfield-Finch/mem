@@ -9,6 +9,7 @@ from torchvision import datasets, transforms, utils
 from tqdm import tqdm
 import visdom
 import numpy as np
+from PIL import Image
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
@@ -128,7 +129,7 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
 
         # back propagation for transfer module
         optimizer.zero_grad()
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
+        loss = loss_quant_recon + loss_image_recon
         # loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
         #        + weight_loss_GAN * (loss_GAN_t + loss_GAN_m + loss_GAN_b
         #                             + loss_GAN_t_resamble + loss_GAN_m_resamble + loss_GAN_b_resamble)
@@ -193,19 +194,20 @@ def train_transfer(epoch, loader, model_transfer, model_img, model_cond, model_D
         #########################
         if i % 100 == 0:
             # save image as file
+            img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             img_show = torch.cat([pose[:sample_size], pose_out[:sample_size], img_out[:sample_size],
                                   transfer_out[:sample_size], img[:sample_size]])
             utils.save_image(
                 img_show,
-                f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png',
+                img_save_name,
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
 
             # viz pose-pose_recon-img_out-transfer_out-gt
-            img_show = img_show.to('cpu').detach().numpy()
-            img_show = (img_show * 0.5 + 0.5) * 255
+            # img_show = img_show.to('cpu').detach().numpy()
+            img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
         # increase the sequence of saving model
@@ -272,11 +274,12 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
-                                                               '/vqvae_150.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/as_15_mem3'
-                                                              '/vqvae_091.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/as_07'
-                                                                   '/vqvae_055.pt')
+                                                               '/vqvae_001.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02'
+                                                              '/vqvae_022.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint'
+                                                                   '/as_07_mem3'
+                                                                   '/vqvae_560.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
     parser.add_argument('--batch_size', type=int, default=8)
@@ -292,7 +295,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_17_mem3'
+    EXPERIMENT_CODE = 'as_18_transfer'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -301,6 +304,7 @@ if __name__ == '__main__':
     else:
         print('EXPERIMENT_CODE already exits.')
     DESCRIPTION = """
+        TransferOnly; 
         Add number of memory in the 2 VQ-VAE; 
         Add ResBlock for transfer_b; 
         Decreased number of downsampling in transferModel; 
@@ -309,14 +313,13 @@ if __name__ == '__main__':
         add weight for loss_GAN being 1 and other components of loss are amplified by 100 times
         add feature mapping loss
         use network_v07.py; 
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
-        + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
+        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
         """
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v10.py;\n '
+             f'file: main_v10_3.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -332,8 +335,8 @@ if __name__ == '__main__':
         ]
     )
     # TODO use a little set for sanity check
+    # _, _, loader = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
     _, loader, _ = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
-    # loader, _ = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
     # model for image
     model_img = VQVAE().to(device)
