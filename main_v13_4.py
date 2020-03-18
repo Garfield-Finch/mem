@@ -109,8 +109,8 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         # loss_GAN_m = criterion(discriminator_transfer_quant_m, gt_D_m_true)
         # loss_GAN_b = criterion(discriminator_transfer_quant_b, gt_D_b_true)
         loss_GAN_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], True)
-        loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[1][0], True)
-        loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[2][0], True)
+        for j in range(1, len(lst_discriminator_transfer_out)):
+            loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[j][0], True)
 
         #
         # # loss_discriminator
@@ -123,7 +123,7 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         loss_D_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], False) +\
                      _cal_gan_loss(lst_discriminator_img[0][0], True)
         for j in range(1, len(lst_discriminator_transfer_out)):
-            loss_D_img += _cal_gan_loss(lst_discriminator_transfer_out[j][0], True)
+            loss_D_img += _cal_gan_loss(lst_discriminator_transfer_out[j][0], False)
             loss_D_img += _cal_gan_loss(lst_discriminator_img[j][0], True)
         #
         # # loss_GAN_resamble: feature mapping loss
@@ -362,8 +362,8 @@ if __name__ == '__main__':
         ]
     )
     # TODO use a little set for sanity check
-    _, loader, _ = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
-    # _, _, loader = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
+    # _, loader, _ = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
+    _, _, loader = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
     # model for image
     model_img = VQVAE().to(device)
