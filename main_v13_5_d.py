@@ -140,16 +140,11 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
             scheduler.step()
 
         # back propagation for transfer module
-        if i % 5 == 0:
-            optimizer.zero_grad()
-            loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) \
-                   + weight_loss_GAN * (loss_GAN_img)
-            loss.backward(retain_graph=True)
-            optimizer.step()
-        else:
-            loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) \
-                   + weight_loss_GAN * (loss_GAN_img)
-            optimizer.zero_grad()
+        optimizer.zero_grad()
+        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
+               + weight_loss_GAN * (loss_GAN_img)
+        loss.backward(retain_graph=True)
+        optimizer.step()
 
         # back propagation for Discriminator
         # optimizer_D_t.zero_grad()
@@ -306,11 +301,11 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
-    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
-                                                               '/vqvae_cond_560.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
-                                                              '/vqvae_img_560.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
+                                                               '/vqvae_016.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02'
+                                                              '/vqvae_038.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
@@ -325,9 +320,9 @@ if __name__ == '__main__':
     ##############################
     is_load_model_img = True
     is_load_model_cond = True
-    is_load_model_transfer = True
+    is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_27'
+    EXPERIMENT_CODE = 'as_28_scratch'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -336,7 +331,7 @@ if __name__ == '__main__':
     else:
         print('EXPERIMENT_CODE already exits.')
     DESCRIPTION = """
-        multiscale-discriminator; 
+        train transfer net and img_discriminator together from scratch; 
         mem3 VQ-VAE;  
         use network_v09.py; 
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
@@ -346,7 +341,7 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v13_4.py;\n '
+             f'file: main_v13_5d.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -411,7 +406,7 @@ if __name__ == '__main__':
     # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
     # model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     # model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    model_D_img = MultiscaleDiscriminator(input_nc=3).to(device)
+    model_D_img = MultiscaleDiscriminator(input_nc=3, num_D=3).to(device)
     model_D_img = nn.DataParallel(model_D_img).cuda()
     if is_load_model_discriminator is True:
         # print('Loading model_D_t ...', end='')
