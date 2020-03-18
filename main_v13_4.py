@@ -83,6 +83,9 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         # discriminator_transfer_quant_b = model_D_b(transfer_quant_b)
         # discriminator_img_quant_b = model_D_b(img_quant_b)
 
+        lst_discriminator_transfer_out = model_D_img(transfer_out)
+        lst_discriminator_img = model_D_img(img)
+
         #######################
         # calculate loss
         #######################
@@ -97,20 +100,18 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         loss_image_recon = criterion(transfer_out, img)
 
         # # utils to calculate loss GAN
-        # gt_D_t_false = torch.zeros(discriminator_transfer_quant_t.shape).cuda()
-        # gt_D_t_true = torch.ones(discriminator_transfer_quant_t.shape).cuda()
-        # gt_D_m_false = torch.zeros(discriminator_transfer_quant_m.shape).cuda()
-        # gt_D_m_true = torch.ones(discriminator_transfer_quant_m.shape).cuda()
-        # gt_D_b_false = torch.zeros(discriminator_transfer_quant_b.shape).cuda()
-        # gt_D_b_true = torch.ones(discriminator_transfer_quant_b.shape).cuda()
-        gt_D_img_false = torch.zeros(img.shape).cuda()
-        gt_D_img_true = torch.ones(img.shape).cuda()
-        #
+        def _cal_gan_loss(tsr_in, key=True):
+            return criterion(tsr_in, torch.ones(tsr_in.shape).cuda()) if key is True \
+                else criterion(tsr_in, torch.zeros(tsr_in.shape).cuda())
+
         # # loss_GAN
         # loss_GAN_t = criterion(discriminator_transfer_quant_t, gt_D_t_true)
         # loss_GAN_m = criterion(discriminator_transfer_quant_m, gt_D_m_true)
         # loss_GAN_b = criterion(discriminator_transfer_quant_b, gt_D_b_true)
-        loss_GAN_img = criterion(transfer_out, gt_D_img_true)
+        loss_GAN_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], True)
+        loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[1][0], True)
+        loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[2][0], True)
+
         #
         # # loss_discriminator
         # loss_D_t = criterion(discriminator_transfer_quant_t, gt_D_t_false) \
@@ -119,7 +120,11 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         #            + criterion(discriminator_img_quant_m, gt_D_m_true)
         # loss_D_b = criterion(discriminator_transfer_quant_b, gt_D_b_false)\
         #            + criterion(discriminator_img_quant_b, gt_D_b_true)
-        loss_D_img = criterion(transfer_out, gt_D_img_false) + criterion(img, gt_D_img_true)
+        loss_D_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], False) +\
+                     _cal_gan_loss(lst_discriminator_img[0][0], True)
+        for j in range(1, len(lst_discriminator_transfer_out)):
+            loss_D_img += _cal_gan_loss(lst_discriminator_transfer_out[j][0], True)
+            loss_D_img += _cal_gan_loss(lst_discriminator_img[j][0], True)
         #
         # # loss_GAN_resamble: feature mapping loss
         # loss_GAN_t_resamble = criterion(discriminator_transfer_quant_t, discriminator_img_quant_t)
@@ -206,7 +211,6 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         lst_loss_D_img.append(loss_D_img.item())
         lst_loss_GAN_img.append(loss_GAN_img.item())
 
-
         #########################
         # Evaluation
         #########################
@@ -224,14 +228,14 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
             )
 
             # viz pose-pose_recon-img_out-transfer_out-gt
-            # img_show = img_show.to('cpu').detach().numpy()
-            # img_show = (img_show * 0.5 + 0.5) * 255
             img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
         # increase the sequence of saving model
         if i % 200 == 0:
-            torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
+            torch.save(model_transfer.state_dict(),
+                       f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(epoch + 1).zfill(3)}.pt')
+            torch.save(model_D_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Di_{str(i + 1).zfill(3)}.pt')
 
     #########################
     # Plot loss to visdom
@@ -302,11 +306,11 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
-    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
-                                                               '/vqvae_508.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02_mem3'
-                                                              '/vqvae_560.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
+                                                               '/vqvae_cond_560.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
+                                                              '/vqvae_img_560.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
@@ -323,7 +327,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = True
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_26'
+    EXPERIMENT_CODE = 'as_27'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -342,7 +346,7 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v13_3.py;\n '
+             f'file: main_v13_4.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
