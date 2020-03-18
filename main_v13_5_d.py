@@ -14,7 +14,7 @@ from PIL import Image
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
 from utils.dataloader_v03 import iPERLoader
-from utils.networks_v07 import TransferModel, VQVAE, DiscriminatorModel
+from utils.networks_v09 import TransferModel, VQVAE, MultiscaleDiscriminator
 
 
 def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
@@ -27,7 +27,7 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
     criterion = nn.MSELoss()
 
     weight_loss_GAN = 1
-    weight_loss_recon = 100
+    weight_loss_recon = 1
     latent_loss_weight = 0.25
     sample_size = 6
 
@@ -83,6 +83,9 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         # discriminator_transfer_quant_b = model_D_b(transfer_quant_b)
         # discriminator_img_quant_b = model_D_b(img_quant_b)
 
+        lst_discriminator_transfer_out = model_D_img(transfer_out)
+        lst_discriminator_img = model_D_img(img)
+
         #######################
         # calculate loss
         #######################
@@ -97,20 +100,18 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         loss_image_recon = criterion(transfer_out, img)
 
         # # utils to calculate loss GAN
-        # gt_D_t_false = torch.zeros(discriminator_transfer_quant_t.shape).cuda()
-        # gt_D_t_true = torch.ones(discriminator_transfer_quant_t.shape).cuda()
-        # gt_D_m_false = torch.zeros(discriminator_transfer_quant_m.shape).cuda()
-        # gt_D_m_true = torch.ones(discriminator_transfer_quant_m.shape).cuda()
-        # gt_D_b_false = torch.zeros(discriminator_transfer_quant_b.shape).cuda()
-        # gt_D_b_true = torch.ones(discriminator_transfer_quant_b.shape).cuda()
-        gt_D_img_false = torch.zeros(img.shape).cuda()
-        gt_D_img_true = torch.ones(img.shape).cuda()
-        #
+        def _cal_gan_loss(tsr_in, key=True):
+            return criterion(tsr_in, torch.ones(tsr_in.shape).cuda()) if key is True \
+                else criterion(tsr_in, torch.zeros(tsr_in.shape).cuda())
+
         # # loss_GAN
         # loss_GAN_t = criterion(discriminator_transfer_quant_t, gt_D_t_true)
         # loss_GAN_m = criterion(discriminator_transfer_quant_m, gt_D_m_true)
         # loss_GAN_b = criterion(discriminator_transfer_quant_b, gt_D_b_true)
-        loss_GAN_img = criterion(transfer_out, gt_D_img_true)
+        loss_GAN_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], True)
+        loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[1][0], True)
+        loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[2][0], True)
+
         #
         # # loss_discriminator
         # loss_D_t = criterion(discriminator_transfer_quant_t, gt_D_t_false) \
@@ -119,7 +120,11 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         #            + criterion(discriminator_img_quant_m, gt_D_m_true)
         # loss_D_b = criterion(discriminator_transfer_quant_b, gt_D_b_false)\
         #            + criterion(discriminator_img_quant_b, gt_D_b_true)
-        loss_D_img = criterion(transfer_out, gt_D_img_false) + criterion(img, gt_D_img_true)
+        loss_D_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], False) +\
+                     _cal_gan_loss(lst_discriminator_img[0][0], True)
+        for j in range(1, len(lst_discriminator_transfer_out)):
+            loss_D_img += _cal_gan_loss(lst_discriminator_transfer_out[j][0], True)
+            loss_D_img += _cal_gan_loss(lst_discriminator_img[j][0], True)
         #
         # # loss_GAN_resamble: feature mapping loss
         # loss_GAN_t_resamble = criterion(discriminator_transfer_quant_t, discriminator_img_quant_t)
@@ -137,14 +142,13 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         # back propagation for transfer module
         if i % 5 == 0:
             optimizer.zero_grad()
-            loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
+            loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) \
                    + weight_loss_GAN * (loss_GAN_img)
             loss.backward(retain_graph=True)
             optimizer.step()
         else:
             loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) \
                    + weight_loss_GAN * (loss_GAN_img)
-            loss.backward(retain_graph=True)
             optimizer.zero_grad()
 
         # back propagation for Discriminator
@@ -206,7 +210,6 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
         # lst_loss_GAN_b_resamble.append((loss_GAN_b_resamble.item()))
         lst_loss_D_img.append(loss_D_img.item())
         lst_loss_GAN_img.append(loss_GAN_img.item())
-
 
         #########################
         # Evaluation
@@ -303,11 +306,11 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
-    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
-                                                               '/vqvae_236.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02_mem3'
-                                                              '/vqvae_287.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
+                                                               '/vqvae_cond_560.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
+                                                              '/vqvae_img_560.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
@@ -324,7 +327,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = True
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_24'
+    EXPERIMENT_CODE = 'as_27'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -333,17 +336,17 @@ if __name__ == '__main__':
     else:
         print('EXPERIMENT_CODE already exits.')
     DESCRIPTION = """
+        multiscale-discriminator; 
         mem3 VQ-VAE;  
-        use network_v07.py; 
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon) 
-        + weight_loss_GAN * (loss_GAN_t + loss_GAN_b + loss_GAN_t_resamble + loss_GAN_b_resamble)
-        update frequency D = 5 * G
+        use network_v09.py; 
+        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
+               + weight_loss_GAN * (loss_GAN_img)
         """
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v13.py;\n '
+             f'file: main_v13_4.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -408,7 +411,8 @@ if __name__ == '__main__':
     # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
     # model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     # model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    model_D_img = DiscriminatorModel(in_channel=3, n_layers=4).to(device)
+    model_D_img = MultiscaleDiscriminator(input_nc=3).to(device)
+    model_D_img = nn.DataParallel(model_D_img).cuda()
     if is_load_model_discriminator is True:
         # print('Loading model_D_t ...', end='')
         # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
@@ -437,7 +441,6 @@ if __name__ == '__main__':
     # optimizer_D_m = optim.Adam(model_D_m.parameters(), lr=args.lr)
     # model_D_b = nn.DataParallel(model_D_b).cuda()
     # optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
-    model_D_img = nn.DataParallel(model_D_img).cuda()
     optimizer_D_img = optim.Adam(model_D_img.parameters(), lr=args.lr)
 
     for i in range(args.epoch):
