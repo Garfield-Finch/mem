@@ -1,6 +1,3 @@
-'''
-number of memory increased to 3 in VQ-VAE
-'''
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -180,6 +177,17 @@ class VQVAE(nn.Module):
         )
         self.quantize_conv_b = nn.Conv2d(embed_dim + channel, embed_dim, 1)
         self.quantize_b = Quantize(embed_dim, n_embed)
+        self.upsample_t = nn.ConvTranspose2d(
+            embed_dim, embed_dim, 4, stride=2, padding=1
+        )
+        self.dec = Decoder(
+            embed_dim + embed_dim,
+            in_channel,
+            channel,
+            n_res_block,
+            n_res_channel,
+            stride=4,
+        )
 
     def forward(self, input):
         quant_t, quant_b, diff, _, _ = self.encode(input)
@@ -245,12 +253,23 @@ class AppVQVAE(nn.Module):
         )
         self.quantize_conv_b = nn.Conv2d(embed_dim + channel, embed_dim, 1)
         self.quantize_b = Quantize(embed_dim, n_embed)
+        self.upsample_t = nn.ConvTranspose2d(
+            embed_dim, embed_dim, 4, stride=2, padding=1
+        )
+        self.dec = Decoder(
+            embed_dim + embed_dim,
+            in_channel,
+            channel,
+            n_res_block,
+            n_res_channel,
+            stride=4,
+        )
 
     def forward(self, input, mode='Default'):
         if mode == 'Default':
             quant_t, quant_b, diff, quant_t_prev, quant_b_prev, _, _ = self.encode(input)
             dec = self.decode(quant_t, quant_b)
-            return dec, quant_t, quant_b,
+            return dec, diff, quant_t, quant_b
         elif mode == 'TRANSFER':
             quant_t, quant_b = input
             self.seq2quant_decode(quant_t, quant_b)
