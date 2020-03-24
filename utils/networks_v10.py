@@ -1,10 +1,11 @@
-"""
-The second idea,
-"""
+'''
+number of memory increased to 3 in VQ-VAE
+'''
 import torch
 from torch import nn
 from torch.nn import functional as F
 
+import numpy as np
 
 # Copyright 2018 The Sonnet Authors. All Rights Reserved.
 #
@@ -179,23 +180,16 @@ class VQVAE(nn.Module):
         )
         self.quantize_conv_b = nn.Conv2d(embed_dim + channel, embed_dim, 1)
         self.quantize_b = Quantize(embed_dim, n_embed)
-        self.upsample_t = nn.ConvTranspose2d(
-            embed_dim, embed_dim, 4, stride=2, padding=1
-        )
-        self.dec = Decoder(
-            embed_dim + embed_dim,
-            in_channel,
-            channel,
-            n_res_block,
-            n_res_channel,
-            stride=4,
-        )
 
-    def forward(self, input):
-        quant_t, quant_b, diff, _, _ = self.encode(input)
-        dec = self.decode(quant_t, quant_b)
-
-        return dec, diff
+    def forward(self, input, mode='Default'):
+        if mode == 'Default':
+            quant_t, quant_b, diff, _, _ = self.encode(input)
+            dec = self.decode(quant_t, quant_b)
+            return dec, diff
+        elif mode == 'TRANSFER':
+            quant_t, quant_b, diff, _, _ = self.encode(input)
+            dec = self.decode(quant_t, quant_b)
+            return dec, diff
 
     def encode(self, input):
         enc_b = self.enc_b(input)
