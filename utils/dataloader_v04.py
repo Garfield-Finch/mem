@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+"""
+This dataloader is designed for warping.
+"""
 import os
 import csv
 from PIL import Image
@@ -96,6 +98,7 @@ class iPERDataset(torch.utils.data.Dataset):
         # NOTE that the train.txt file should end with only ONE SINGLE blank line
 
         self.input_nm_list = []
+        self.input_statistics = []  # contains the index of each sub dir of images, to obtain the source of each target
         for i in self.lst_dir:
             dir_img_root = os.path.join(self.data_root, 'images_HD', i[:-1])
             dir_img = os.listdir(dir_img_root)
@@ -103,6 +106,13 @@ class iPERDataset(torch.utils.data.Dataset):
             for j in range(len(dir_img)):
                 dir_img[j] = os.path.join(self.data_root, 'images_HD', i[:-1], dir_img[j])
             self.input_nm_list += dir_img
+
+            self.input_statistics.append(len(dir_img))
+
+        for i in range(1, len(self.input_statistics)):
+            self.input_statistics[i] += self.input_statistics[i - 1]
+        # insert a zero at the beginning for latter usage
+        self.input_statistics.insert(0, 0)
 
         self.transform = transform
 
@@ -112,10 +122,26 @@ class iPERDataset(torch.utils.data.Dataset):
         img_app = Image.open(img_app_nm)
         img_pose = Image.open(img_pose_nm)
 
-        tsr_app = self.transform(img_app)  # the tensor containing target image
-        tsr_pose = self.transform(img_pose)
+        tsr_app_t = self.transform(img_app)  # the tensor containing target image
+        tsr_pose_t = self.transform(img_pose)
 
-        return tsr_app, tsr_pose
+        # obtain the source
+        if item == 0:
+            index_s = 0
+        else:
+            for i in range(1, len(self.input_statistics)):
+                if item < self.input_statistics[i]:
+                    index_s = self.input_statistics[i - 1]
+                    break
+        img_app_nm = self.input_nm_list[index_s]
+        img_pose_nm = img_app_nm.replace('images_HD', 'skeletons').replace('.jpg', '.png')
+        img_app = Image.open(img_app_nm)
+        img_pose = Image.open(img_pose_nm)
+
+        tsr_app_s = self.transform(img_app)
+        tsr_pose_s = self.transform(img_pose)
+
+        return tsr_app_s, tsr_pose_s, tsr_app_t, tsr_pose_t
 
     def __len__(self):
         return len(self.input_nm_list)
