@@ -149,7 +149,7 @@ def train(epoch, loader, dic_model, scheduler, device):
             img_show = torch.cat([pose_s[:sample_size], pose_s_out[:sample_size],
                                   pose_t[:sample_size], pose_t_out[:sample_size],
                                   img_s_out[:sample_size], img_s[:sample_size],
-                                  img_t_out[:sample_size], img_t[:sample_size]
+                                  img_t_out[:sample_size], transfer_out[:sample_size], img_t[:sample_size]
                                   ])
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
