@@ -270,11 +270,8 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text("""
-        single-discriminator; 
-        mem3 VQ-VAE;  
-        use network_v10.py; 
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
-               + weight_loss_GAN(0.02) * (loss_GAN_img)
+        pretrained; 
+        naive; 
         """
              f'Hostname: {socket.gethostname()}; '
              f'file: main_v15_3.py;\n '

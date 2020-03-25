@@ -95,6 +95,8 @@ def train(epoch, loader, dic_model, scheduler, device):
                # + weight_loss_GAN * (loss_GAN_img)
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
+        optimizer_img.step()
+        optimizer_cond.step()
 
         # back propagation for Discriminator
         # optimizer_D_t.zero_grad()
@@ -270,14 +272,11 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text("""
-        single-discriminator; 
-        mem3 VQ-VAE;  
-        use network_v10.py; 
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
-               + weight_loss_GAN(0.02) * (loss_GAN_img)
+        af+ae; 
+        scratch; 
         """
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v15.py;\n '
+             f'file: main_v15_1.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu

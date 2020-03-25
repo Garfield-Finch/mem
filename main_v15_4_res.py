@@ -273,7 +273,8 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text("""
-        resblock in transfer module
+        pretrained; 
+        resblock in transfer module; 
         """
              f'Hostname: {socket.gethostname()}; '
              f'file: main_v15_4_res.py;\n '
