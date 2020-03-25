@@ -264,7 +264,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_32'
+    EXPERIMENT_CODE = 'as_36'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -276,10 +276,11 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text("""
         Resblock; 
-        Scratch
+        Scratch; 
+        freeze pose VQVAE; 
         """
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v15_5_RS.py;\n '
+             f'file: main_v15_6.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu

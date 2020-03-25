@@ -92,12 +92,14 @@ def train(epoch, loader, dic_model, scheduler, device):
 
         # back propagation for transfer module
         optimizer_transfer.zero_grad()
+        optimizer_img.zero_grad()
+        optimizer_cond.zero_grad()
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon + weight_latent_loss * loss_latent)
                # + weight_loss_GAN * (loss_GAN_img)
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
         optimizer_img.step()
-        optimizer_cond.step()
+        # optimizer_cond.step()
 
         # back propagation for Discriminator
         # optimizer_D_t.zero_grad()
@@ -262,7 +264,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_31'
+    EXPERIMENT_CODE = 'as_34'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')

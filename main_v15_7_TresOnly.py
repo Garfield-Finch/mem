@@ -92,12 +92,14 @@ def train(epoch, loader, dic_model, scheduler, device):
 
         # back propagation for transfer module
         optimizer_transfer.zero_grad()
+        optimizer_img.zero_grad()
+        optimizer_cond.zero_grad()
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon + weight_latent_loss * loss_latent)
                # + weight_loss_GAN * (loss_GAN_img)
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
-        optimizer_img.step()
-        optimizer_cond.step()
+        # optimizer_img.step()
+        # optimizer_cond.step()
 
         # back propagation for Discriminator
         # optimizer_D_t.zero_grad()
@@ -258,11 +260,11 @@ if __name__ == '__main__':
     ##############################
     # Dash Board
     ##############################
-    is_load_model_img = False
-    is_load_model_cond = False
+    is_load_model_img = True
+    is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_32'
+    EXPERIMENT_CODE = 'as_37'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -273,11 +275,12 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text("""
-        Resblock; 
-        Scratch
+        pretrained; 
+        resblock in transfer module; 
+        Only train transfer module with resblock; 
         """
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v15_5_RS.py;\n '
+             f'file: main_v15_7.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
