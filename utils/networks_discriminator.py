@@ -1,3 +1,10 @@
+import torch
+from torch import nn
+from torch.nn import functional as F
+
+import numpy as np
+
+
 class MultiscaleDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d,
                  use_sigmoid=False, num_D=3, getIntermFeat=False):
