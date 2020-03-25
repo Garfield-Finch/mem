@@ -144,22 +144,25 @@ class TransferModel(nn.Module):
         transfer_quant_t = self._transfer_warp(pose_s_quant_t, pose_t_quant_t, img_s_quant_t)
         transfer_quant_b = self._transfer_warp(pose_s_quant_b, pose_t_quant_b, img_s_quant_b)
 
-        # # quant_t : [batch_size=25, 64, 32, 32]
-        # quant_t_1 = self.enc_t(quant_t)
-        # # quant_t_1 : [batch_size=25, 128, 16, 16]
-        # quant_t_2 = self.quantize_conv_t(quant_t_1)
-        # # quant_t_2 : [batch_size=25, 64, 16, 16]
-        # quant_t_out = self.dec_t(quant_t_2)
-        # # quant_t : [batch_size=25, 64, 32, 32]
-        #
-        # quant_b_1 = self.enc_b(quant_b)
-        # # quant_t_1 : [batch_size=25, 128, 16, 16]
-        # quant_b_2 = self.quantize_conv_b(quant_b_1)
-        # # quant_b_2: [batch_size=25, 64, 16, 16])
-        # quant_b_out = self.dec_b(quant_b_2)
-        # # quant_b_out: [batch_size=25, 64, 64, 64])
+        quant_t = transfer_quant_t
+        # quant_t : [batch_size=25, 64, 32, 32]
+        quant_t_1 = self.enc_t(quant_t)
+        # quant_t_1 : [batch_size=25, 128, 16, 16]
+        quant_t_2 = self.quantize_conv_t(quant_t_1)
+        # quant_t_2 : [batch_size=25, 64, 16, 16]
+        quant_t_out = self.dec_t(quant_t_2)
+        # quant_t : [batch_size=25, 64, 32, 32]
 
-        return transfer_quant_t, transfer_quant_b
+        quant_b = transfer_quant_b
+        quant_b_1 = self.enc_b(quant_b)
+        # quant_t_1 : [batch_size=25, 128, 16, 16]
+        quant_b_2 = self.quantize_conv_b(quant_b_1)
+        # quant_b_2: [batch_size=25, 64, 16, 16])
+        quant_b_out = self.dec_b(quant_b_2)
+        # quant_b_out: [batch_size=25, 64, 64, 64])
+
+        # return transfer_quant_t, transfer_quant_b
+        return quant_t_out, quant_b_out
 
     def _transfer_warp(self, pose_s_quant, pose_t_quant, img_s_quant):
         shape_tsr = pose_s_quant.shape
