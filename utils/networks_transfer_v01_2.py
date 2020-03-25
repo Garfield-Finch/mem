@@ -127,13 +127,11 @@ class TransferModel(nn.Module):
         models_t = []
         models_b = []
         models_t.extend([ResBlock(in_channel, channel),
-                         nn.ReLU(inplace=True),
-                         ResBlock(channel, in_channel),
+                         ResBlock(in_channel, channel),
                          nn.ReLU(inplace=True),
                          ])
         models_b.extend([ResBlock(in_channel, channel),
-                         nn.ReLU(inplace=True),
-                         ResBlock(channel, in_channel),
+                         ResBlock(in_channel, channel),
                          nn.ReLU(inplace=True),
                          ])
         self.models_t = nn.Sequential(*models_t)
