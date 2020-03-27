@@ -1,10 +1,8 @@
-# v15
-- new baseline, AF
+### v16
+Appearance use AE instead of VQVAE
 
-
----
-
-# Previous Experiments
+### v15
+Appearance warping 
 
 ### v13
 Three memory with multiscale-discriminator.
