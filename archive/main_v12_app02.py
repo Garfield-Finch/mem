@@ -8,11 +8,11 @@ from PIL import Image
 
 import torch
 from torch import nn, optim
-from torchvision import datasets, transforms, utils
+from torchvision import transforms, utils
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 from utils.dataloader_v03 import iPERLoader
-from utils.networks_v06 import VQVAE
+from archive.networks_v06 import VQVAE
 
 
 def train(epoch, loader, model, optimizer, scheduler, device):

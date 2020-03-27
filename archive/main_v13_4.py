@@ -4,7 +4,7 @@ import socket
 
 import torch
 from torch import nn, optim
-from torchvision import datasets, transforms, utils
+from torchvision import transforms, utils
 
 from tqdm import tqdm
 import visdom
@@ -14,7 +14,7 @@ from PIL import Image
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
 from utils.dataloader_v03 import iPERLoader
-from utils.networks_v09 import TransferModel, VQVAE, MultiscaleDiscriminator
+from archive.networks_v09 import TransferModel, VQVAE, MultiscaleDiscriminator
 
 
 def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
@@ -26,7 +26,7 @@ def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
     #############################
     criterion = nn.MSELoss()
 
-    weight_loss_GAN = 0.02
+    weight_loss_GAN = 1
     weight_loss_recon = 1
     latent_loss_weight = 0.25
     sample_size = 6
@@ -327,7 +327,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = True
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_28'
+    EXPERIMENT_CODE = 'as_27'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -335,17 +335,18 @@ if __name__ == '__main__':
         print('Done')
     else:
         print('EXPERIMENT_CODE already exits.')
-
-    viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
-    viz.text("""
-        single-discriminator; 
+    DESCRIPTION = """
+        multiscale-discriminator; 
         mem3 VQ-VAE;  
         use network_v09.py; 
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
-               + weight_loss_GAN(0.02) * (loss_GAN_img)
+               + weight_loss_GAN * (loss_GAN_img)
         """
+
+    viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
+    viz.text(f'{DESCRIPTION}'
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v13_8.py;\n '
+             f'file: main_v13_4.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -410,7 +411,7 @@ if __name__ == '__main__':
     # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
     # model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     # model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    model_D_img = MultiscaleDiscriminator(input_nc=3, num_D=1).to(device)
+    model_D_img = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D_img = nn.DataParallel(model_D_img).cuda()
     if is_load_model_discriminator is True:
         # print('Loading model_D_t ...', end='')

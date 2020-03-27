@@ -4,7 +4,7 @@ import socket
 
 import torch
 from torch import nn, optim
-from torchvision import datasets, transforms, utils
+from torchvision import transforms, utils
 
 from tqdm import tqdm
 import visdom
@@ -15,7 +15,7 @@ from vq_vae_2_pytorch.scheduler import CycleScheduler
 
 from utils.dataloader_v04 import iPERLoader
 from utils.networks_v10 import VQVAE, AppVQVAE
-from utils.networks_transfer_v01_2 import TransferModel
+from archive.networks_transfer_v01_2 import TransferModel
 
 
 def train(epoch, loader, dic_model, scheduler, device):
@@ -98,7 +98,7 @@ def train(epoch, loader, dic_model, scheduler, device):
                # + weight_loss_GAN * (loss_GAN_img)
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
-        # optimizer_img.step()
+        optimizer_img.step()
         # optimizer_cond.step()
 
         # back propagation for Discriminator
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_37'
+    EXPERIMENT_CODE = 'as_34'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -277,10 +277,9 @@ if __name__ == '__main__':
     viz.text("""
         pretrained; 
         resblock in transfer module; 
-        Only train transfer module with resblock; 
         """
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v15_7.py;\n '
+             f'file: main_v15_4_res.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu

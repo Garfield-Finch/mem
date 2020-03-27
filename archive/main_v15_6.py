@@ -4,7 +4,7 @@ import socket
 
 import torch
 from torch import nn, optim
-from torchvision import datasets, transforms, utils
+from torchvision import transforms, utils
 
 from tqdm import tqdm
 import visdom
@@ -15,7 +15,7 @@ from vq_vae_2_pytorch.scheduler import CycleScheduler
 
 from utils.dataloader_v04 import iPERLoader
 from utils.networks_v10 import VQVAE, AppVQVAE
-from utils.networks_transfer_v01_1 import TransferModel
+from archive.networks_transfer_v01_2 import TransferModel
 
 
 def train(epoch, loader, dic_model, scheduler, device):
@@ -43,6 +43,7 @@ def train(epoch, loader, dic_model, scheduler, device):
 
     model_img.train()
     model_cond.train()
+    model_transfer.train()
 
     lst_loss_quant_recon = []
     lst_loss_quant_recon_t = []
@@ -66,7 +67,7 @@ def train(epoch, loader, dic_model, scheduler, device):
         transfer_quant_t, transfer_quant_b = model_transfer(pose_s_quant_t, pose_t_quant_t, img_s_quant_t,
                                                             pose_s_quant_b, pose_t_quant_b, img_s_quant_b)
         transfer_input = (transfer_quant_t, transfer_quant_b)
-        transfer_out = model_img(transfer_input, mode='TRANSFER')
+        img_transfer_out = model_img(transfer_input, mode='TRANSFER')
 
         #######################
         # calculate loss
@@ -78,7 +79,7 @@ def train(epoch, loader, dic_model, scheduler, device):
         loss_quant_recon = loss_quant_recon_t + loss_quant_recon_b
 
         # loss_image_recon
-        loss_image_recon = criterion(transfer_out, img_t) + criterion(img_s_out, img_s)
+        loss_image_recon = criterion(img_transfer_out, img_t) + criterion(img_s_out, img_s)
         loss_latent = img_s_latent_loss.mean()
 
         # # utils to calculate loss GAN
@@ -91,12 +92,14 @@ def train(epoch, loader, dic_model, scheduler, device):
 
         # back propagation for transfer module
         optimizer_transfer.zero_grad()
+        optimizer_img.zero_grad()
+        optimizer_cond.zero_grad()
         loss = weight_loss_recon * (loss_quant_recon + loss_image_recon + weight_latent_loss * loss_latent)
                # + weight_loss_GAN * (loss_GAN_img)
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
         optimizer_img.step()
-        optimizer_cond.step()
+        # optimizer_cond.step()
 
         # back propagation for Discriminator
         # optimizer_D_t.zero_grad()
@@ -151,7 +154,7 @@ def train(epoch, loader, dic_model, scheduler, device):
             img_show = torch.cat([pose_s[:sample_size], pose_s_out[:sample_size],
                                   pose_t[:sample_size], pose_t_out[:sample_size],
                                   img_s_out[:sample_size], img_s[:sample_size],
-                                  img_t_out[:sample_size], transfer_out[:sample_size], img_t[:sample_size]
+                                  img_t_out[:sample_size], img_transfer_out[:sample_size], img_t[:sample_size]
                                   ])
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
@@ -240,10 +243,10 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
-    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
-                                                               '/vqvae_cond_560.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
-                                                              '/vqvae_img_560.pt')
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_04'
+                                                               '/vqvae_168.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app'
+                                                              '/vqvae_166.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
@@ -258,10 +261,10 @@ if __name__ == '__main__':
     # Dash Board
     ##############################
     is_load_model_img = False
-    is_load_model_cond = False
+    is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_30'
+    EXPERIMENT_CODE = 'as_36'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -272,11 +275,12 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text("""
-        af+ae; 
-        scratch; 
+        Resblock; 
+        Scratch; 
+        freeze pose VQVAE; 
         """
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v15_1.py;\n '
+             f'file: main_v15_6.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -332,10 +336,10 @@ if __name__ == '__main__':
     optimizer_transfer = optim.Adam(model_transfer.parameters(), lr=args.lr)
 
     scheduler = None
-    # if args.sched == 'cycle':
-    #     scheduler = CycleScheduler(
-    #         optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
-    #     )
+    if args.sched == 'cycle':
+        scheduler = CycleScheduler(
+            optimizer_transfer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
+        )
 
     # Discriminator model
     # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)

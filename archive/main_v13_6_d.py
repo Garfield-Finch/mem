@@ -4,7 +4,7 @@ import socket
 
 import torch
 from torch import nn, optim
-from torchvision import datasets, transforms, utils
+from torchvision import transforms, utils
 
 from tqdm import tqdm
 import visdom
@@ -13,29 +13,22 @@ from PIL import Image
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
-from utils.dataloader_v04 import iPERLoader
-from utils.networks_v10 import VQVAE, AppVQVAE
-from utils.networks_transfer_v01_1 import TransferModel
+from utils.dataloader_v03 import iPERLoader
+from archive.networks_v09 import TransferModel, VQVAE, MultiscaleDiscriminator
 
 
-def train(epoch, loader, dic_model, scheduler, device):
+def train(epoch, loader, model_transfer, model_img, model_cond, model_D_img,
+          optimizer, optimizer_D_img, scheduler, device):
     loader = tqdm(loader)
-
-    model_img = dic_model['model_img']
-    model_cond = dic_model['model_cond']
-    model_transfer = dic_model['model_transfer']
-    optimizer_img = dic_model['optimizer_img']
-    optimizer_cond = dic_model['optimizer_cond']
-    optimizer_transfer = dic_model['optimizer_transfer']
 
     #############################
     # Hyper parameters
     #############################
     criterion = nn.MSELoss()
 
-    weight_loss_GAN = 0.02
+    weight_loss_GAN = 1
     weight_loss_recon = 1
-    weight_latent_loss = 0.25
+    latent_loss_weight = 0.25
     sample_size = 6
 
     # mse_sum = 0
@@ -43,60 +36,115 @@ def train(epoch, loader, dic_model, scheduler, device):
 
     model_img.train()
     model_cond.train()
+    model_transfer.train()
+    # model_D_t.train()
+    # model_D_m.train()
+    # model_D_b.train()
+    model_D_img.train()
 
     lst_loss_quant_recon = []
     lst_loss_quant_recon_t = []
+    lst_loss_quant_recon_m = []
     lst_loss_quant_recon_b = []
     lst_loss_image_recon = []
     lst_loss = []
+    # lst_loss_GAN_t = []
+    # lst_loss_GAN_m = []
+    # lst_loss_GAN_b = []
+    # lst_loss_D_t = []
+    # lst_loss_D_m = []
+    # lst_loss_D_b = []
+    # lst_loss_GAN_t_resamble = []
+    # lst_loss_GAN_m_resamble = []
+    # lst_loss_GAN_b_resamble = []
+    lst_loss_D_img = []
+    lst_loss_GAN_img = []
 
-    for i, (img_s, pose_s, img_t, pose_t) in enumerate(loader):
-        img_s = img_s.to(device)
-        img_t = img_t.to(device)
-        pose_s = pose_s.to(device)
-        pose_t = pose_t.to(device)
+    for i, (img, pose) in enumerate(loader):
+        img = img.to(device)
+        pose = pose.to(device)
 
-        pose_s_out, pose_s_latent_loss, pose_s_quant_t, pose_s_quant_b = model_cond(pose_s)
-        pose_t_out, pose_t_latent_loss, pose_t_quant_t, pose_t_quant_b = model_cond(pose_t)
-        img_s_out, img_s_latent_loss, img_s_quant_t, img_s_quant_b = model_img(img_s)
-        img_t_out, img_t_latent_loss, img_t_quant_t, img_t_quant_b = model_img(img_t)
-        # quant_b.shape: [batch_size, 64, 64, 64]
+        pose_out, pose_latent_loss, pose_quant_t, pose_quant_m, pose_quant_b = model_cond(pose)
+        img_out, img_latent_loss, img_quant_t, img_quant_m, img_quant_b = model_img(img)
+        # quant_b.shape: [batch_size, 64, 128, 128]
+        # quant_m.shape: [batch_size, 64, 64, 64]
         # quant_t.shape: [batch_size, 64, 32, 32]
 
-        transfer_quant_t, transfer_quant_b = model_transfer(pose_s_quant_t, pose_t_quant_t, img_s_quant_t,
-                                                            pose_s_quant_b, pose_t_quant_b, img_s_quant_b)
-        transfer_input = (transfer_quant_t, transfer_quant_b)
-        img_transfer_out = model_img(transfer_input, mode='TRANSFER')
+        transfer_quant_t, transfer_quant_m, transfer_quant_b = model_transfer(pose_quant_t, pose_quant_m, pose_quant_b)
+        transfer_input = (transfer_quant_t, transfer_quant_m, transfer_quant_b)
+        transfer_out = model_img(transfer_input, mode='TRANSFER')
+
+        # discriminator_transfer_quant_t = model_D_t(transfer_quant_t)
+        # discriminator_img_quant_t = model_D_t(img_quant_t)
+        #
+        # discriminator_transfer_quant_m = model_D_m(transfer_quant_m)
+        # discriminator_img_quant_m = model_D_m(img_quant_m)
+        #
+        # discriminator_transfer_quant_b = model_D_b(transfer_quant_b)
+        # discriminator_img_quant_b = model_D_b(img_quant_b)
+
+        lst_discriminator_transfer_out = model_D_img(transfer_out)
+        lst_discriminator_img = model_D_img(img)
 
         #######################
         # calculate loss
         #######################
 
         # loss_quant_recon
-        loss_quant_recon_t = criterion(transfer_quant_t, img_t_quant_t.clone().detach())
-        loss_quant_recon_b = criterion(transfer_quant_b, img_t_quant_b.clone().detach())
-        loss_quant_recon = loss_quant_recon_t + loss_quant_recon_b
+        loss_quant_recon_t = criterion(transfer_quant_t, img_quant_t.clone().detach())
+        loss_quant_recon_m = criterion(transfer_quant_m, img_quant_m.clone().detach())
+        loss_quant_recon_b = criterion(transfer_quant_b, img_quant_b.clone().detach())
+        loss_quant_recon = loss_quant_recon_t + loss_quant_recon_m + loss_quant_recon_b
 
         # loss_image_recon
-        loss_image_recon = criterion(img_transfer_out, img_t) + criterion(img_s_out, img_s)
-        loss_latent = img_s_latent_loss.mean()
+        loss_image_recon = criterion(transfer_out, img)
 
         # # utils to calculate loss GAN
         def _cal_gan_loss(tsr_in, key=True):
             return criterion(tsr_in, torch.ones(tsr_in.shape).cuda()) if key is True \
                 else criterion(tsr_in, torch.zeros(tsr_in.shape).cuda())
 
+        # # loss_GAN
+        # loss_GAN_t = criterion(discriminator_transfer_quant_t, gt_D_t_true)
+        # loss_GAN_m = criterion(discriminator_transfer_quant_m, gt_D_m_true)
+        # loss_GAN_b = criterion(discriminator_transfer_quant_b, gt_D_b_true)
+        loss_GAN_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], True)
+        for j in range(1, len(lst_discriminator_transfer_out)):
+            loss_GAN_img += _cal_gan_loss(lst_discriminator_transfer_out[j][0], True)
+
+        #
+        # # loss_discriminator
+        # loss_D_t = criterion(discriminator_transfer_quant_t, gt_D_t_false) \
+        #            + criterion(discriminator_img_quant_t, gt_D_t_true)
+        # loss_D_m = criterion(discriminator_transfer_quant_m, gt_D_m_false) \
+        #            + criterion(discriminator_img_quant_m, gt_D_m_true)
+        # loss_D_b = criterion(discriminator_transfer_quant_b, gt_D_b_false)\
+        #            + criterion(discriminator_img_quant_b, gt_D_b_true)
+        loss_D_img = _cal_gan_loss(lst_discriminator_transfer_out[0][0], False) +\
+                     _cal_gan_loss(lst_discriminator_img[0][0], True)
+        for j in range(1, len(lst_discriminator_transfer_out)):
+            loss_D_img += _cal_gan_loss(lst_discriminator_transfer_out[j][0], False)
+            loss_D_img += _cal_gan_loss(lst_discriminator_img[j][0], True)
+        #
+        # # loss_GAN_resamble: feature mapping loss
+        # loss_GAN_t_resamble = criterion(discriminator_transfer_quant_t, discriminator_img_quant_t)
+        # loss_GAN_m_resamble = criterion(discriminator_transfer_quant_m, discriminator_img_quant_m)
+        # loss_GAN_b_resamble = criterion(discriminator_transfer_quant_b, discriminator_img_quant_b)
+
+        # img_recon_loss = criterion(img_out, img)
+        # img_latent_loss = img_latent_loss.mean()
+        # img_loss = img_recon_loss + latent_loss_weight * img_latent_loss
+        # img_loss.backward()
+
         if scheduler is not None:
             scheduler.step()
 
         # back propagation for transfer module
-        optimizer_transfer.zero_grad()
-        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon + weight_latent_loss * loss_latent)
-               # + weight_loss_GAN * (loss_GAN_img)
+        optimizer.zero_grad()
+        loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)\
+               + weight_loss_GAN * (loss_GAN_img)
         loss.backward(retain_graph=True)
-        optimizer_transfer.step()
-        optimizer_img.step()
-        optimizer_cond.step()
+        optimizer.step()
 
         # back propagation for Discriminator
         # optimizer_D_t.zero_grad()
@@ -110,14 +158,14 @@ def train(epoch, loader, dic_model, scheduler, device):
         # optimizer_D_b.zero_grad()
         # loss_D_b.backward()
         # optimizer_D_b.step()
-        # optimizer_D_img.zero_grad()
-        # loss_D_img.backward()
-        # optimizer_D_img.step()
+        optimizer_D_img.zero_grad()
+        loss_D_img.backward()
+        optimizer_D_img.step()
 
         # mse_sum += img_recon_loss.item() * img.shape[0]
         # mse_n += img.shape[0]
 
-        lr = optimizer_transfer.param_groups[0]['lr']
+        lr = optimizer.param_groups[0]['lr']
 
         loader.set_description(
             (
@@ -130,29 +178,41 @@ def train(epoch, loader, dic_model, scheduler, device):
                 # f'D_t: {loss_D_t.item():.3f}; '
                 # f'D_m: {loss_D_m.item():.3f}; '
                 # f'D_b: {loss_D_b.item():.3f}; '
+                f'D_img: {loss_D_img.item():.3f}; '
+                f'G_img: {loss_GAN_img.item():.3f}; '
                 f'lr: {lr:.5f}'
-                # f'mse: {img_recon_loss.item():.5f}; '
+                # f'epoch: {epoch + 1}; mse: {img_recon_loss.item():.5f}; '
                 # f'latent: {img_latent_loss.item():.3f}; avg mse: {mse_sum / mse_n:.5f}; '
+                # f'lr: {lr:.5f}'
             )
         )
 
         # for visdom visualization
         lst_loss_quant_recon.append(loss_quant_recon.item())
         lst_loss_quant_recon_t.append(loss_quant_recon_t.item())
+        lst_loss_quant_recon_m.append(loss_quant_recon_m.item())
         lst_loss_quant_recon_b.append(loss_quant_recon_b.item())
         lst_loss_image_recon.append(loss_image_recon.item())
         lst_loss.append(loss.item())
+        # lst_loss_D_t.append(loss_D_t.item())
+        # lst_loss_D_m.append(loss_D_m.item())
+        # lst_loss_D_b.append(loss_D_b.item())
+        # lst_loss_GAN_t.append(loss_GAN_t.item())
+        # lst_loss_GAN_m.append(loss_GAN_m.item())
+        # lst_loss_GAN_b.append(loss_GAN_b.item())
+        # lst_loss_GAN_t_resamble.append((loss_GAN_t_resamble.item()))
+        # lst_loss_GAN_m_resamble.append((loss_GAN_m_resamble.item()))
+        # lst_loss_GAN_b_resamble.append((loss_GAN_b_resamble.item()))
+        lst_loss_D_img.append(loss_D_img.item())
+        lst_loss_GAN_img.append(loss_GAN_img.item())
 
         #########################
         # Evaluation
         #########################
         if i % 100 == 0:
             # save image as file
-            img_show = torch.cat([pose_s[:sample_size], pose_s_out[:sample_size],
-                                  pose_t[:sample_size], pose_t_out[:sample_size],
-                                  img_s_out[:sample_size], img_s[:sample_size],
-                                  img_t_out[:sample_size], img_transfer_out[:sample_size], img_t[:sample_size]
-                                  ])
+            img_show = torch.cat([pose[:sample_size], pose_out[:sample_size], img_out[:sample_size],
+                                  transfer_out[:sample_size], img[:sample_size]])
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
                 img_show,
@@ -163,14 +223,14 @@ def train(epoch, loader, dic_model, scheduler, device):
             )
 
             # viz pose-pose_recon-img_out-transfer_out-gt
+            # img_show = img_show.to('cpu').detach().numpy()
+            # img_show = (img_show * 0.5 + 0.5) * 255
             img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
         # increase the sequence of saving model
         if i % 200 == 0:
-            torch.save(model_transfer.state_dict(),
-                       f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(epoch + 1).zfill(3)}.pt')
-            # torch.save(model_D_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Di_{str(i + 1).zfill(3)}.pt')
+            torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
     #########################
     # Plot loss to visdom
@@ -213,6 +273,7 @@ def train(epoch, loader, dic_model, scheduler, device):
     #              )
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss_quant_recon_t, 'loss_quant_recon_t'),
+             (lst_loss_quant_recon_m, 'loss_quant_recon_m'),
              (lst_loss_quant_recon_b, 'loss_quant_recon_b'),
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
@@ -221,16 +282,16 @@ def train(epoch, loader, dic_model, scheduler, device):
                  opts=dict(title='loss_quant_recon', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
-    # for line_num, (lst, line_title) in enumerate(
-    #         [(lst_loss_D_img, 'loss_D_img'),
-    #          (lst_loss_GAN_img, 'loss_GAN_img'),
-    #          ]):
-    #     viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
-    #              name=line_title,
-    #              win='loss_GAN_img',
-    #              opts=dict(title='loss_GAN_img', showlegend=True),
-    #              update=None if (epoch == 0 and line_num == 0) else 'append'
-    #              )
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_D_img, 'loss_D_img'),
+             (lst_loss_GAN_img, 'loss_GAN_img'),
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_GAN_img',
+                 opts=dict(title='loss_GAN_img', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
 
 
 if __name__ == '__main__':
@@ -240,11 +301,11 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
-    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_04'
-                                                               '/vqvae_166.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app'
-                                                              '/vqvae_164.pt')
-    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
+    parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_05_mem3'
+                                                               '/vqvae_016.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_02'
+                                                              '/vqvae_038.pt')
+    parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/mem3_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
     parser.add_argument('--gpu', type=str, default='0')
@@ -261,7 +322,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_30'
+    EXPERIMENT_CODE = 'as_28_scratch'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -272,11 +333,14 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
     viz.text("""
-        pretrained; 
-        af+ae; 
-        """
+                 multiscale-discriminator; 
+                 mem3 VQ-VAE;  
+                 use network_v09.py; 
+                 loss = weight_loss_recon * (loss_quant_recon + loss_image_recon)
+                         + weight_loss_GAN * (loss_GAN_img)
+                 """
+             f'file: main_v13_6_d.py;\n '
              f'Hostname: {socket.gethostname()}; '
-             f'file: main_v15_2.py;\n '
              f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -296,8 +360,8 @@ if __name__ == '__main__':
     _, _, loader = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
     # model for image
-    model_img = AppVQVAE().to(device)
-    model_img = nn.DataParallel(model_img).to(device)
+    model_img = VQVAE().to(device)
+    model_img = nn.DataParallel(model_img).cuda()
     if is_load_model_img is True:
         print('Loading model_img ...', end='')
         model_img.load_state_dict(torch.load(args.model_img_path))
@@ -305,7 +369,7 @@ if __name__ == '__main__':
         print('Done')
     else:
         print('model_img Initialized.')
-    optimizer_img = optim.Adam(model_img.parameters(), lr=args.lr)
+    # optimizer_img = optim.Adam(model_img.parameters(), lr=args.lr)
 
     # model for condition
     model_cond = VQVAE().to(device)
@@ -317,7 +381,7 @@ if __name__ == '__main__':
         print('Done')
     else:
         print('model_cond Initialized.')
-    optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
+    # optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     # transfer model
     model_transfer = TransferModel().to(device)
@@ -329,61 +393,60 @@ if __name__ == '__main__':
         print('Done')
     else:
         print('model_transfer Initialized.')
-    optimizer_transfer = optim.Adam(model_transfer.parameters(), lr=args.lr)
+    optimizer = optim.Adam(model_transfer.parameters(), lr=args.lr)
 
     scheduler = None
-    # if args.sched == 'cycle':
-    #     scheduler = CycleScheduler(
-    #         optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
-    #     )
+    if args.sched == 'cycle':
+        scheduler = CycleScheduler(
+            optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
+        )
 
     # Discriminator model
     # model_D_t = DiscriminatorModel(in_channel=64, n_layers=1).to(device)
     # model_D_m = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
     # model_D_b = DiscriminatorModel(in_channel=64, n_layers=2).to(device)
-    # # model_D_img = MultiscaleDiscriminator(input_nc=3, num_D=1).to(device)
-    # # model_D_img = nn.DataParallel(model_D_img).cuda()
-    # if is_load_model_discriminator is True:
-    #     # print('Loading model_D_t ...', end='')
-    #     # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
-    #     # model_D_t.eval()
-    #     # print('Done')
-    #     #
-    #     # print('Loading model_D_m ...', end='')
-    #     # model_D_m.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dm')))
-    #     # model_D_m.eval()
-    #     # print('Done')
-    #     #
-    #     # print('Loading model_D_b ...', end='')
-    #     # model_D_b.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
-    #     # model_D_b.eval()
-    #     # print('Done')
-    #
-    #     print('Loading model_D_img ...', end='')
-    #     model_D_img.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
-    #     model_D_img.eval()
-    #     print('Done')
-    # else:
-    #     print('model_discriminator Initialized.')
-    # # model_D_t = nn.DataParallel(model_D_t).cuda()
-    # # optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
-    # # model_D_m = nn.DataParallel(model_D_m).cuda()
-    # # optimizer_D_m = optim.Adam(model_D_m.parameters(), lr=args.lr)
-    # # model_D_b = nn.DataParallel(model_D_b).cuda()
-    # # optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
-    # optimizer_D_img = optim.Adam(model_D_img.parameters(), lr=args.lr)
+    model_D_img = MultiscaleDiscriminator(input_nc=3, num_D=3).to(device)
+    model_D_img = nn.DataParallel(model_D_img).cuda()
+    if is_load_model_discriminator is True:
+        # print('Loading model_D_t ...', end='')
+        # model_D_t.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dt')))
+        # model_D_t.eval()
+        # print('Done')
+        #
+        # print('Loading model_D_m ...', end='')
+        # model_D_m.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Dm')))
+        # model_D_m.eval()
+        # print('Done')
+        #
+        # print('Loading model_D_b ...', end='')
+        # model_D_b.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
+        # model_D_b.eval()
+        # print('Done')
 
-    dic_model = {'model_img': model_img, 'model_cond': model_cond, 'model_transfer': model_transfer,
-                 'optimizer_img': optimizer_img, 'optimizer_cond': optimizer_cond,
-                 'optimizer_transfer': optimizer_transfer}
+        print('Loading model_D_img ...', end='')
+        model_D_img.load_state_dict(torch.load(args.model_transfer_path.replace('vqvae', 'vqvae_Db')))
+        model_D_img.eval()
+        print('Done')
+    else:
+        print('model_discriminator Initialized.')
+    # model_D_t = nn.DataParallel(model_D_t).cuda()
+    # optimizer_D_t = optim.Adam(model_D_t.parameters(), lr=args.lr)
+    # model_D_m = nn.DataParallel(model_D_m).cuda()
+    # optimizer_D_m = optim.Adam(model_D_m.parameters(), lr=args.lr)
+    # model_D_b = nn.DataParallel(model_D_b).cuda()
+    # optimizer_D_b = optim.Adam(model_D_b.parameters(), lr=args.lr)
+    optimizer_D_img = optim.Adam(model_D_img.parameters(), lr=args.lr)
 
     for i in range(args.epoch):
         viz.text(f'epoch: {i}', win='Epoch')
-        train(epoch=i, loader=loader, dic_model=dic_model, scheduler=scheduler, device=device)
+        train(epoch=i, loader=loader, model_transfer=model_transfer, model_img=model_img,
+              model_cond=model_cond, model_D_img=model_D_img,
+              optimizer=optimizer, optimizer_D_img=optimizer_D_img,
+              scheduler=scheduler, device=device)
         torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(i + 1).zfill(3)}.pt')
         torch.save(model_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_img_{str(i + 1).zfill(3)}.pt')
         torch.save(model_cond.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_cond_{str(i + 1).zfill(3)}.pt')
         # torch.save(model_D_t.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Dt_{str(i + 1).zfill(3)}.pt')
         # torch.save(model_D_m.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Dm_{str(i + 1).zfill(3)}.pt')
         # torch.save(model_D_b.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Db_{str(i + 1).zfill(3)}.pt')
-        # torch.save(model_D_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Di_{str(i + 1).zfill(3)}.pt')
+        torch.save(model_D_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Di_{str(i + 1).zfill(3)}.pt')
