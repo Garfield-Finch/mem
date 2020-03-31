@@ -242,8 +242,7 @@ class appVQVAE(nn.Module):
         channel=128,
         n_res_block=2,
         n_res_channel=32,
-        # embed_dim=64,
-        embed_dim=96,
+        embed_dim=64,
         n_embed=512,
         decay=0.99,
     ):
