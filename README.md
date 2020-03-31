@@ -1,5 +1,5 @@
 ### v16
-Appearance use AE instead of VQVAE
+Appearance warping. Appearance use AE instead of VQVAE
 
 ### v15
 Appearance warping 
