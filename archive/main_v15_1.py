@@ -11,8 +11,8 @@ import visdom
 import numpy as np
 from PIL import Image
 
-from utils.dataloader_v04 import iPERLoader
-from utils.networks_v10 import VQVAE, AppVQVAE
+from archive.dataloader_v04 import iPERLoader
+from archive.networks_v10 import VQVAE, AppVQVAE
 from archive.networks_transfer_v01_1 import TransferModel
 
 

@@ -13,10 +13,10 @@ from PIL import Image
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
-from utils.dataloader_v04 import iPERLoader
-from utils.networks_v10 import VQVAE
+from archive.dataloader_v04 import iPERLoader
+from archive.networks_v10 import VQVAE
 from utils.networks_transfer_v01 import TransferModel
-from utils.networks_app import AppVQVAE
+from archive.networks_app import AppVQVAE
 
 
 def train(epoch, loader, dic_model, scheduler, device):

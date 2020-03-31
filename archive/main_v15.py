@@ -4,17 +4,15 @@ import socket
 
 import torch
 from torch import nn, optim
-from torchvision import datasets, transforms, utils
+from torchvision import transforms, utils
 
 from tqdm import tqdm
 import visdom
 import numpy as np
 from PIL import Image
 
-from vq_vae_2_pytorch.scheduler import CycleScheduler
-
-from utils.dataloader_v04 import iPERLoader
-from utils.networks_v10 import VQVAE, AppVQVAE
+from archive.dataloader_v04 import iPERLoader
+from archive.networks_v10 import VQVAE, AppVQVAE
 from utils.networks_transfer_v01 import TransferModel
 
 
