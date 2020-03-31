@@ -15,3 +15,7 @@ Train three memory VQVAE for pose.
 
 ### v10
 Three memory.
+
+
+# Experiment Code
+- app_v03 enlarge app VQVAE dim
