@@ -23,7 +23,7 @@ def train(epoch, loader, model, optimizer, scheduler, device):
     criterion = nn.MSELoss()
 
     latent_loss_weight = 0.25
-    sample_size = 25
+    sample_size = 8
 
     mse_sum = 0
     mse_n = 0
