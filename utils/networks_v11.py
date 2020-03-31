@@ -1,5 +1,6 @@
 """
-for image 2 image translation
+for image 2 image translation,
+for train only
 """
 import torch
 from torch import nn
@@ -241,7 +242,8 @@ class appVQVAE(nn.Module):
         channel=128,
         n_res_block=2,
         n_res_channel=32,
-        embed_dim=64,
+        # embed_dim=64,
+        embed_dim=96,
         n_embed=512,
         decay=0.99,
     ):
@@ -271,7 +273,7 @@ class appVQVAE(nn.Module):
     def forward(self, input):
         quant_t, quant_b, diff, _, _ = self.encode(input)
         dec = self.decode(quant_t, quant_b)
-        return dec, diff, quant_t, quant_b
+        return dec, diff
 
     def encode(self, input):
         enc_b = self.enc_b(input)
