@@ -248,6 +248,7 @@ class TransferModel(nn.Module):
     def __init__(
         self,
         in_channel=64,
+        out_channel=64,
         channel=128,
         n_res_block=2,
         n_res_channel=32,
@@ -269,8 +270,8 @@ class TransferModel(nn.Module):
         # self.upsample_t = nn.ConvTranspose2d(
         #     embed_dim, embed_dim, 4, stride=2, padding=1
         # )
-        self.dec_b = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=4)
-        self.dec_t = Decoder(embed_dim, in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.dec_b = Decoder(embed_dim, out_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.dec_t = Decoder(embed_dim, out_channel, channel, n_res_block, n_res_channel, stride=2)
 
     def forward(self, quant_t, quant_b):
         """

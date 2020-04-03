@@ -155,7 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_04'
                                                                '/vqvae_211.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_v03_1/vqvae_319.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_v03/vqvae_045.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     is_load_model_cond = True
     is_load_model_transfer = False
     is_load_model_discriminator = False
-    EXPERIMENT_CODE = 'as_40'
+    EXPERIMENT_CODE = 'as_41'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -291,7 +291,7 @@ if __name__ == '__main__':
                  'optimizer_transfer': optimizer_transfer}
 
     for i in range(args.epoch):
-        viz.text(f'epoch: {i}', win='Epoch')
+        viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(epoch=i, loader=loader, dic_model=dic_model, scheduler=scheduler, device=device)
         torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(i + 1).zfill(3)}.pt')
         torch.save(model_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_img_{str(i + 1).zfill(3)}.pt')

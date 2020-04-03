@@ -84,6 +84,7 @@ def train(epoch, loader, dic_model, scheduler, device):
         loss = weight_loss_recon * (weight_loss_quant_recon * loss_quant_recon + loss_image_recon)
         # loss = weight_loss_recon * (loss_quant_recon + loss_image_recon + weight_latent_loss * loss_latent)
                # + weight_loss_GAN * (loss_GAN_img)
+        lst_loss.append(loss.item())
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
         # optimizer_img.step()
@@ -288,7 +289,7 @@ if __name__ == '__main__':
                  'optimizer_transfer': optimizer_transfer}
 
     for i in range(args.epoch):
-        viz.text(f'epoch: {i}', win='Epoch')
+        viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(epoch=i, loader=loader, dic_model=dic_model, scheduler=scheduler, device=device)
         torch.save(model_transfer.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(i + 1).zfill(3)}.pt')
         torch.save(model_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_img_{str(i + 1).zfill(3)}.pt')
