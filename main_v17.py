@@ -1,22 +1,21 @@
 import argparse
 import os
-import socket
-
-import torch
-from torch import nn, optim
-from torchvision import transforms, utils
-
-from tqdm import tqdm
 import visdom
+from tqdm import tqdm
+import socket
 import numpy as np
 from PIL import Image
 
-from vq_vae_2_pytorch.scheduler import CycleScheduler
+import torch
+from torch import nn, optim
+# from torch.utils.data import DataLoader
+from torchvision import datasets, transforms, utils
 
+# from utils.vqvae import VQVAE
+from utils.networks_v11 import appVQVAE, VQVAE
+from vq_vae_2_pytorch.scheduler import CycleScheduler
 from utils.dataloader_v03 import iPERLoader
-from utils.networks_v11 import VQVAE
 from utils.networks_transfer_v02 import TransferModel
-from utils.networks_v11 import appVQVAE
 
 
 def train(epoch, loader, dic_model, scheduler, device):
@@ -39,34 +38,21 @@ def train(epoch, loader, dic_model, scheduler, device):
     weight_loss_quant_recon = 0
     sample_size = 6
 
-    # mse_sum = 0
-    # mse_n = 0
+    mse_sum = 0
+    mse_n = 0
 
-    model_img.train()
-    model_cond.train()
-    model_transfer.train()
-
-    lst_loss_quant_recon = []
-    lst_loss_quant_recon_t = []
-    lst_loss_quant_recon_b = []
-    lst_loss_image_recon = []
     lst_loss = []
+    for i, (img, pose) in enumerate(loader):
+        model_img.zero_grad()
+        img = img.to(device)
+        pose = pose.to(device)
 
-    for i, (img_s, pose_s, img_t, pose_t) in enumerate(loader):
-        img_s = img_s.to(device)
-        img_t = img_t.to(device)
-        pose_s = pose_s.to(device)
-        pose_t = pose_t.to(device)
-
-        pose_s_out, pose_s_latent_loss, pose_s_quant_t, pose_s_quant_b = model_cond(pose_s)
-        pose_t_out, pose_t_latent_loss, pose_t_quant_t, pose_t_quant_b = model_cond(pose_t)
-        img_s_out, img_s_quant_t, img_s_quant_b = model_img(img_s)
-        img_t_out, img_t_quant_t, img_t_quant_b = model_img(img_t)
+        pose_out, _, pose_quant_t, pose_quant_b = model_cond(pose)
+        img_out, _, img_quant_t, img_quant_b = model_img(img)
         # quant_b.shape: [batch_size, 64, 64, 64]
         # quant_t.shape: [batch_size, 64, 32, 32]
 
-        transfer_quant_t, transfer_quant_b = model_transfer(pose_s_quant_t, pose_t_quant_t, img_s_quant_t,
-                                                            pose_s_quant_b, pose_t_quant_b, img_s_quant_b)
+        transfer_quant_t, transfer_quant_b = model_transfer(pose_quant_t, pose_quant_b)
         transfer_input = (transfer_quant_t, transfer_quant_b)
         img_transfer_out = model_img(transfer_input, mode='TRANSFER')
 
@@ -75,12 +61,12 @@ def train(epoch, loader, dic_model, scheduler, device):
         #######################
 
         # loss_quant_recon
-        loss_quant_recon_t = criterion(transfer_quant_t, img_t_quant_t.clone().detach())
-        loss_quant_recon_b = criterion(transfer_quant_b, img_t_quant_b.clone().detach())
+        loss_quant_recon_t = criterion(transfer_quant_t, img_quant_t.clone().detach())
+        loss_quant_recon_b = criterion(transfer_quant_b, img_quant_b.clone().detach())
         loss_quant_recon = loss_quant_recon_t + loss_quant_recon_b
 
         # loss_image_recon
-        loss_image_recon = criterion(img_transfer_out, img_t) + criterion(img_s_out, img_s)
+        loss_image_recon = criterion(img_transfer_out, img)
         # loss_latent = img_s_latent_loss.mean()
 
         # # utils to calculate loss GAN
@@ -100,27 +86,11 @@ def train(epoch, loader, dic_model, scheduler, device):
                # + weight_loss_GAN * (loss_GAN_img)
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
-        optimizer_img.step()
+        # optimizer_img.step()
         # optimizer_cond.step()
 
-        # back propagation for Discriminator
-        # optimizer_D_t.zero_grad()
-        # loss_D_t.backward(retain_graph=True)
-        # optimizer_D_t.step()
-        #
-        # optimizer_D_m.zero_grad()
-        # loss_D_m.backward(retain_graph=True)
-        # optimizer_D_m.step()
-        #
-        # optimizer_D_b.zero_grad()
-        # loss_D_b.backward()
-        # optimizer_D_b.step()
-        # optimizer_D_img.zero_grad()
-        # loss_D_img.backward()
-        # optimizer_D_img.step()
-
-        # mse_sum += img_recon_loss.item() * img.shape[0]
-        # mse_n += img.shape[0]
+        mse_sum += loss_image_recon.item() * img.shape[0]
+        mse_n += img.shape[0]
 
         lr = optimizer_transfer.param_groups[0]['lr']
 
@@ -136,27 +106,13 @@ def train(epoch, loader, dic_model, scheduler, device):
                 # f'D_m: {loss_D_m.item():.3f}; '
                 # f'D_b: {loss_D_b.item():.3f}; '
                 f'lr: {lr:.5f}'
-                # f'mse: {img_recon_loss.item():.5f}; '
-                # f'latent: {img_latent_loss.item():.3f}; avg mse: {mse_sum / mse_n:.5f}; '
             )
         )
 
-        # for visdom visualization
-        lst_loss_quant_recon.append(loss_quant_recon.item())
-        lst_loss_quant_recon_t.append(loss_quant_recon_t.item())
-        lst_loss_quant_recon_b.append(loss_quant_recon_b.item())
-        lst_loss_image_recon.append(loss_image_recon.item())
-        lst_loss.append(loss.item())
-
-        #########################
-        # Evaluation
-        #########################
         if i % 100 == 0:
             # save image as file
-            img_show = torch.cat([pose_s[:sample_size], pose_s_out[:sample_size],
-                                  pose_t[:sample_size], pose_t_out[:sample_size],
-                                  img_s_out[:sample_size], img_s[:sample_size],
-                                  img_t_out[:sample_size], img_transfer_out[:sample_size], img_t[:sample_size]
+            img_show = torch.cat([pose[:sample_size], pose_out[:sample_size],
+                                  img_out[:sample_size], img_transfer_out[:sample_size], img[:sample_size]
                                   ])
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
@@ -166,8 +122,6 @@ def train(epoch, loader, dic_model, scheduler, device):
                 normalize=True,
                 range=(-1, 1),
             )
-
-            # viz pose-pose_recon-img_out-transfer_out-gt
             img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'pose-img_out-transfer_out-gt'})
 
@@ -177,65 +131,16 @@ def train(epoch, loader, dic_model, scheduler, device):
                        f'checkpoint/{EXPERIMENT_CODE}/vqvae_trans_{str(epoch + 1).zfill(3)}.pt')
             # torch.save(model_D_img.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_Di_{str(i + 1).zfill(3)}.pt')
 
-    #########################
-    # Plot loss to visdom
-    #########################
-    for line_num, (plot_y, line_title) in enumerate(
-            [(sum(lst_loss_quant_recon) / len(lst_loss_quant_recon), 'loss_quant_recon'),
-             (sum(lst_loss_image_recon) / len(lst_loss_image_recon), 'loss_image_recon'),
-             (sum(lst_loss) / len(lst_loss), 'loss'),
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss, 'loss'),
+             ([mse_sum / mse_n], 'MSE')
              ]):
-        viz.line(Y=np.array([plot_y]), X=np.array([epoch]),
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
                  win='loss',
                  opts=dict(title='loss', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
-    # for line_num, (lst, line_title) in enumerate(
-    #         [(lst_loss_GAN_t, 'loss_GAN_t'),
-    #          (lst_loss_GAN_m, 'loss_GAN_m'),
-    #          (lst_loss_GAN_b, 'loss_GAN_b'),
-    #          (lst_loss_D_t, 'loss_D_t'),
-    #          (lst_loss_D_m, 'loss_D_m'),
-    #          (lst_loss_D_b, 'loss_D_b')
-    #          ]):
-    #     viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
-    #              name=line_title,
-    #              win='loss_GAN',
-    #              opts=dict(title='loss_GAN', showlegend=True),
-    #              update=None if (epoch == 0 and line_num == 0) else 'append'
-    #              )
-    # for line_num, (lst, line_title) in enumerate(
-    #         [(lst_loss_GAN_t_resamble, 'loss_GAN_t_resamble'),
-    #          (lst_loss_GAN_m_resamble, 'loss_GAN_m_resamble'),
-    #          (lst_loss_GAN_b_resamble, 'loss_GAN_b_resamble'),
-    #          ]):
-    #     viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
-    #              name=line_title,
-    #              win='loss_feature_mapping',
-    #              opts=dict(title='feature mapping loss', showlegend=True),
-    #              update=None if (epoch == 0 and line_num == 0) else 'append'
-    #              )
-    for line_num, (lst, line_title) in enumerate(
-            [(lst_loss_quant_recon_t, 'loss_quant_recon_t'),
-             (lst_loss_quant_recon_b, 'loss_quant_recon_b'),
-             ]):
-        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
-                 name=line_title,
-                 win='loss_quant_recon',
-                 opts=dict(title='loss_quant_recon', showlegend=True),
-                 update=None if (epoch == 0 and line_num == 0) else 'append'
-                 )
-    # for line_num, (lst, line_title) in enumerate(
-    #         [(lst_loss_D_img, 'loss_D_img'),
-    #          (lst_loss_GAN_img, 'loss_GAN_img'),
-    #          ]):
-    #     viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
-    #              name=line_title,
-    #              win='loss_GAN_img',
-    #              opts=dict(title='loss_GAN_img', showlegend=True),
-    #              update=None if (epoch == 0 and line_num == 0) else 'append'
-    #              )
 
 
 if __name__ == '__main__':
@@ -247,8 +152,7 @@ if __name__ == '__main__':
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_04'
                                                                '/vqvae_211.pt')
-    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app'
-                                                              '/vqvae_209.pt')
+    parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_v03_1/vqvae_319.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_17_transfer'
                                                                    '/vqvae_trans_560.pt')
     parser.add_argument('--env', type=str, default='main')
@@ -276,12 +180,14 @@ if __name__ == '__main__':
         print('EXPERIMENT_CODE already exits.')
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
-    viz.text("""
-        
-        """
-             f'Hostname: {socket.gethostname()}; '
-             f'file: main_v16.py;\n '
-             f'Experiment_Code: {EXPERIMENT_CODE};\n', win='board')
+
+    DESCRIPTION = """
+        n_dim = 128; SmallData
+    """\
+                  f'file: main_v17.py;\n '\
+                  f'Hostname: {socket.gethostname()}; ' \
+                  f'Experiment_Code: {EXPERIMENT_CODE};\n'
+
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
     device = 'cuda'
@@ -300,7 +206,7 @@ if __name__ == '__main__':
     _, _, loader = iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
     # model for image
-    model_img = AppVQVAE().to(device)
+    model_img = appVQVAE(embed_dim=128).to(device)
     model_img = nn.DataParallel(model_img).to(device)
     if is_load_model_img is True:
         print('Loading model_img ...', end='')
@@ -324,7 +230,7 @@ if __name__ == '__main__':
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     # transfer model
-    model_transfer = TransferModel().to(device)
+    model_transfer = TransferModel(in_channel=64, out_channel=128).to(device)
     model_transfer = nn.DataParallel(model_transfer).to(device)
     if is_load_model_transfer is True:
         print('Loading model_transfer ...', end='')

@@ -269,10 +269,15 @@ class appVQVAE(nn.Module):
             stride=4,
         )
 
-    def forward(self, input):
-        quant_t, quant_b, diff, _, _ = self.encode(input)
-        dec = self.decode(quant_t, quant_b)
-        return dec, diff
+    def forward(self, input, mode='DEFAULT'):
+        if mode == 'DEFAULT':
+            quant_t, quant_b, diff, _, _ = self.encode(input)
+            dec = self.decode(quant_t, quant_b)
+            return dec, diff, quant_t, quant_b
+        elif mode == 'TRANSFER':
+            quant_t, quant_b = input
+            dec = self.decode(quant_t, quant_b)
+            return dec
 
     def encode(self, input):
         enc_b = self.enc_b(input)
