@@ -87,6 +87,7 @@ def train(epoch, loader, dic_model, scheduler, device):
         loss = weight_loss_recon * (weight_loss_quant_recon * loss_quant_recon + loss_image_recon)
         # loss = weight_loss_recon * (loss_quant_recon + loss_image_recon + weight_latent_loss * loss_latent)
                # + weight_loss_GAN * (loss_GAN_img)
+        lst_loss.append(loss.item())
         loss.backward(retain_graph=True)
         optimizer_transfer.step()
         # optimizer_img.step()
