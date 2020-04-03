@@ -1,5 +1,5 @@
 """
-There are two dropout layer in TransferEncoder for quant_b and one dropout layer for quant_t
+2 mem Transfer
 """
 import torch
 from torch import nn
@@ -244,43 +244,6 @@ class VQVAE(nn.Module):
         return dec
 
 
-class TransferEncoder(nn.Module):
-    def __init__(self, in_channel, channel, n_res_block, n_res_channel, stride):
-        super().__init__()
-
-        if stride == 4:
-            blocks = [
-                nn.Conv2d(in_channel, channel // 2, 4, stride=2, padding=1),
-                # add dropout here
-                nn.Dropout(0.02),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channel // 2, channel, 4, stride=2, padding=1),
-                # add dropout here
-                nn.Dropout(0.02),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channel, channel, 3, padding=1),
-            ]
-
-        elif stride == 2:
-            blocks = [
-                nn.Conv2d(in_channel, channel // 2, 4, stride=2, padding=1),
-                # add dropout here
-                nn.Dropout(0.02),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(channel // 2, channel, 3, padding=1),
-            ]
-
-        for i in range(n_res_block):
-            blocks.append(ResBlock(channel, n_res_channel))
-
-        blocks.append(nn.ReLU(inplace=True))
-
-        self.blocks = nn.Sequential(*blocks)
-
-    def forward(self, input):
-        return self.blocks(input)
-
-
 class TransferModel(nn.Module):
     def __init__(
         self,
@@ -294,8 +257,8 @@ class TransferModel(nn.Module):
     ):
         super().__init__()
 
-        self.enc_b = TransferEncoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
-        self.enc_t = TransferEncoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
+        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_t = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv2d(channel, embed_dim, 1)
         # self.quantize_t = Quantize(embed_dim, n_embed)
         # self.dec_t = Decoder(
