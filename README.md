@@ -1,3 +1,7 @@
+### v17
+Enlarge dimension of VQVAE memory vectors to 128 and 96 respectively.
+embed_dim=128 has improved performance.
+
 ### v16
 Appearance warping. Appearance use AE instead of VQVAE
 

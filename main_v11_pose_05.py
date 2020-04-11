@@ -132,7 +132,7 @@ if __name__ == '__main__':
     ##############################
     # Dash Board
     ##############################
-    BATCH_SIZE = 64 * 2
+    BATCH_SIZE = 8
     EXPERIMENT_CODE = 'pose_05_mem3'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
@@ -177,7 +177,7 @@ if __name__ == '__main__':
         )
 
     print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_05_mem3/vqvae_560.pt'))
+    model.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_05_mem3/vqvae_301.pt'))
     model.eval()
     print('Complete !')
 

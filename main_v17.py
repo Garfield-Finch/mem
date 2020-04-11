@@ -152,7 +152,7 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--model_cond_path', type=str, default='/p300/mem/mem_src/checkpoint/pose_04'
-                                                               '/vqvae_409.pt')
+                                                               '/vqvae_422.pt')
     parser.add_argument('--model_img_path', type=str, default='/p300/mem/mem_src/checkpoint/app_v03_1/vqvae_560.pt')
     parser.add_argument('--model_transfer_path', type=str, default='/p300/mem/mem_src/checkpoint_exp/as_40'
                                                                    '/vqvae_trans_560.pt')
