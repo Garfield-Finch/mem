@@ -39,12 +39,12 @@ class SPADEGenerator(BaseNetwork):
 
         self.head_0 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
 
-        self.G_middle_0 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
-        self.G_middle_1 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
+        self.G_middle_0 = SPADEResnetBlock(16 * nf, 4 * nf, opt)
+        self.G_middle_1 = SPADEResnetBlock(4 * nf, 4 * nf, opt)
 
-        self.up_0 = SPADEResnetBlock(16 * nf, 8 * nf, opt)
-        self.up_1 = SPADEResnetBlock(8 * nf, 4 * nf, opt)
-        self.up_2 = SPADEResnetBlock(4 * nf, 2 * nf, opt)
+        self.up_0 = SPADEResnetBlock(4 * nf, 4 * nf, opt)
+        self.up_1 = SPADEResnetBlock(4 * nf, 2 * nf, opt)
+        self.up_2 = SPADEResnetBlock(2 * nf, 2 * nf, opt)
         self.up_3 = SPADEResnetBlock(2 * nf, 1 * nf, opt)
 
         final_nc = nf
