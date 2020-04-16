@@ -166,12 +166,12 @@ if __name__ == '__main__':
     #         optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
     #     )
 
-    # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app/vqvae_061.pt'))
-    # model.eval()
-    # print('Complete !')
+    print('Loading Model...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/app_v04/vqvae_089.pt'))
+    model.eval()
+    print('Complete !')
 
-    for i in range(args.epoch):
+    for i in range(89, args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(i, loader, model, optimizer, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')

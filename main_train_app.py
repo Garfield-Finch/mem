@@ -27,6 +27,9 @@ def train(epoch, loader, model, optimizer, scheduler, device):
     mse_sum = 0
     mse_n = 0
 
+    lst_loss = []
+
+    model.train()
     for i, (img, label) in enumerate(loader):
         model.zero_grad()
 
@@ -36,6 +39,7 @@ def train(epoch, loader, model, optimizer, scheduler, device):
         recon_loss = criterion(out, img)
         latent_loss = latent_loss.mean()
         loss = recon_loss + latent_loss_weight * latent_loss
+        lst_loss.append(loss.item())
         loss.backward()
 
         if scheduler is not None:
@@ -90,6 +94,17 @@ def train(epoch, loader, model, optimizer, scheduler, device):
         if i % 200 == 0:
             torch.save(model.state_dict(), f'checkpoint/app/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss, 'loss'),
+             ([mse_sum / mse_n], 'MSE')
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss',
+                 opts=dict(title='loss', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -105,6 +120,13 @@ if __name__ == '__main__':
     print(args)
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
+
+    DESCRIPTION = """
+            app, baseline
+        """ \
+                  f'file: main_train_app.py;\n ' \
+                  f'Hostname: {socket.gethostname()}; ' \
+                  f'Experiment_Code: app_02;\n'
 
     os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3'
 
@@ -132,11 +154,12 @@ if __name__ == '__main__':
             optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
         )
 
-    # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/vq_vae_2_pytorch/checkpoint/app/vqvae_061.pt'))
-    # model.eval()
-    # print('Complete !')
+    print('Loading Model...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/app/vqvae_263.pt'))
+    model.eval()
+    print('Complete !')
 
-    for i in range(args.epoch):
+    for i in range(263, args.epoch):
+        viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(i, loader, model, optimizer, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/app/vqvae_{str(i + 1).zfill(3)}.pt')

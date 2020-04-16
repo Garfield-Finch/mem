@@ -36,7 +36,7 @@ def train(epoch, loader, dic_model, scheduler, device):
     weight_loss_GAN = 0.02
     weight_loss_recon = 1
     weight_loss_quant_recon = 0
-    sample_size = 6
+    sample_size = min(6, args.batch_size)
 
     mse_sum = 0
     mse_n = 0
