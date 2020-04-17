@@ -35,7 +35,7 @@ def train(epoch, loader, dic_model, scheduler, device):
     criterion = nn.MSELoss()
 
     latent_loss_weight = 0.25
-    sample_size = 8
+    sample_size = min(8, args.batch_size)
 
     mse_sum = 0
     mse_n = 0
@@ -77,7 +77,7 @@ def train(epoch, loader, dic_model, scheduler, device):
         if i % 100 == 0:
             # model.eval()
 
-            sample = img[:sample_size]
+            # sample = img[:sample_size]
 
             # with torch.no_grad():
             #     out, _ = model(sample)
@@ -94,7 +94,8 @@ def train(epoch, loader, dic_model, scheduler, device):
 
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
-                torch.cat([sample, out], 0),
+                torch.cat([pose[:sample_size], pose_out[:sample_size],
+                           out[:sample_size], img[:sample_size]], 0),
                 img_save_name,
                 nrow=sample_size,
                 normalize=True,
@@ -178,10 +179,10 @@ if __name__ == '__main__':
 
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
-    # print('Loading Model...', end='')
-    # model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_04/vqvae_462.pt'))
-    # model_cond.eval()
-    # print('Complete !')
+    print('Loading Model...', end='')
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_04/vqvae_462.pt'))
+    model_cond.eval()
+    print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
     # if args.sched == 'cycle':
     #     scheduler = CycleScheduler(
