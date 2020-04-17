@@ -42,13 +42,17 @@ def train(epoch, loader, dic_model, scheduler, device):
 
     lst_loss = []
     for i, (img, label) in enumerate(loader):
-        img = img.to(device)
-        pose = label.to(device)
+        # Important
+        # img = img.to(device)
+        # pose = label.to(device)
+        img = label.to(device)
+        pose = img.to(device)
 
         pose_out, _, _, _, pose_seg = model_cond(pose)
         out, latent_loss = model_img(img, pose_seg)
 
-        recon_loss = criterion(out, img)
+        # Important, want to regres to appearance
+        recon_loss = criterion(out, pose)
         latent_loss = latent_loss.mean()
         loss = recon_loss + latent_loss_weight * latent_loss
 
@@ -132,7 +136,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_60'
+    EXPERIMENT_CODE = 'as_76'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -144,9 +148,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE
+        SPADE;Z=pose;Seg=app;
     """\
-                  f'file: tz_main_v18_spade.py;\n '\
+                  f'file: tz_main_v18_c6_spade.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -180,7 +184,7 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_04/vqvae_462.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/app/vqvae_264.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)

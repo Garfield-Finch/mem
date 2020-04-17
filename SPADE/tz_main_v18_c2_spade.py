@@ -1,5 +1,6 @@
 """
 Use SPADE to decode
+change z=None in tz_networks_v12_spade
 """
 import argparse
 import os
@@ -48,7 +49,8 @@ def train(epoch, loader, dic_model, scheduler, device):
         pose_out, _, _, _, pose_seg = model_cond(pose)
         out, latent_loss = model_img(img, pose_seg)
 
-        recon_loss = criterion(out, img)
+        # important
+        recon_loss = criterion(out, pose)
         latent_loss = latent_loss.mean()
         loss = recon_loss + latent_loss_weight * latent_loss
 
@@ -132,7 +134,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_60'
+    EXPERIMENT_CODE = 'as_72'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -144,9 +146,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE
+        SPADE;Z=random;Seg=pose;
     """\
-                  f'file: tz_main_v18_spade.py;\n '\
+                  f'file: tz_main_v18_c2_spade.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 

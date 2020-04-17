@@ -42,7 +42,9 @@ def train(epoch, loader, dic_model, scheduler, device):
 
     lst_loss = []
     for i, (img, label) in enumerate(loader):
-        img = img.to(device)
+        # this is important
+        # img = img.to(device)
+        img = label.to(device)
         pose = label.to(device)
 
         pose_out, _, _, _, pose_seg = model_cond(pose)
@@ -132,7 +134,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_60'
+    EXPERIMENT_CODE = 'as_74'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -144,9 +146,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE
+        SPADE;Z=pose;Seg=pose;
     """\
-                  f'file: tz_main_v18_spade.py;\n '\
+                  f'file: tz_main_v18_c4_spade.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
