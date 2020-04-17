@@ -35,7 +35,8 @@ class SPADEGenerator(BaseNetwork):
         else:
             # Otherwise, we make the network deterministic by starting with
             # downsampled segmentation map instead of random z
-            self.fc = nn.Conv2d(self.opt.semantic_nc, 16 * nf, 3, padding=1)
+            # self.fc = nn.Conv2d(self.opt.semantic_nc, 16 * nf, 3, padding=1)
+            self.fc = nn.Conv2d(256, 16 * nf, 3, padding=1)
 
         self.head_0 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
 
@@ -85,7 +86,7 @@ class SPADEGenerator(BaseNetwork):
             x = x.view(-1, 16 * self.opt.ngf, self.sh, self.sw)
         else:
             # we downsample segmap and run convolution
-            x = F.interpolate(seg, size=(self.sh, self.sw))
+            x = F.interpolate(z, size=(self.sh, self.sw))
             x = self.fc(x)
 
         x = self.head_0(x, seg)

@@ -21,6 +21,7 @@ Train three memory VQVAE for pose.
 Three memory.
 
 # Experiment Code
+- pose_v04 VQVAE for skeleton
 - app_v03 enlarge app VQVAE dim
 - app_02 VQVAE for appearance, 3 memory
 - app VQVAE for appearance
