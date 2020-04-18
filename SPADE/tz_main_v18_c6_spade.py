@@ -98,15 +98,16 @@ def train(epoch, loader, dic_model, scheduler, device):
 
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
-                torch.cat([pose[:sample_size], pose_out[:sample_size],
-                           out[:sample_size], img[:sample_size]], 0),
+                torch.cat([img[:sample_size], pose_out[:sample_size],
+                           out[:sample_size], pose[:sample_size]], 0),
                 img_save_name,
                 nrow=sample_size,
                 normalize=True,
                 range=(-1, 1),
             )
             img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
-            viz.images(img_show, win='transfer', nrow=sample_size, opts={'title': 'gt-sample'})
+            viz.images(img_show, win='transfer', nrow=sample_size,
+                       opts={'title': 'pose-vq_img-img_out-gt'})
 
             model.train()
 
