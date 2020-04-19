@@ -1,5 +1,6 @@
 """
 Use SPADE to decode in appVQVAE
+To be used with option:'--use_vae' for SPADE
 """
 import torch
 from torch import nn
@@ -459,7 +460,7 @@ class VQVAE_SPADE(nn.Module):
     def decode(self, quant_t, quant_b, cond):
         upsample_t = self.upsample_t(quant_t)
         quant = torch.cat([upsample_t, quant_b], 1)
-        dec = self.dec(cond, z=quant)
+        dec = self.dec(cond, z=None)
 
         return dec
 
