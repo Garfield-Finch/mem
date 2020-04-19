@@ -16,7 +16,7 @@ from torchvision import datasets, transforms, utils
 # from utils.vqvae import VQVAE
 from tz_networks_v12_spade import appVQVAE, VQVAE_SPADE, poseVQVAE, MultiscaleDiscriminator
 # from vq_vae_2_pytorch.scheduler import CycleScheduler
-from tz_dataloader_v03 import iPERLoader
+from tz_dataloader_v04 import iPERLoader
 
 from options.tz_train_options import TrainOptions
 
@@ -43,7 +43,7 @@ def train(epoch, loader, dic_model, scheduler, device):
             else criterion(tsr_in, torch.zeros(tsr_in.shape).cuda())
 
     latent_loss_weight = 0.25
-    weight_gan = 0.1
+    weight_gan = 0.01
     sample_size = min(8, args.batch_size)
 
     mse_sum = 0
@@ -52,20 +52,18 @@ def train(epoch, loader, dic_model, scheduler, device):
     lst_loss = []
     lst_loss_G = []
     lst_loss_D = []
-    for i, (img, label) in enumerate(loader):
-        # Important
-        # img = img.to(device)
-        # pose = label.to(device)
-        img = label.to(device)
-        pose = img.to(device)
+    for i, (img_0, pose_0, img, label) in enumerate(loader):
+        img_0 = img_0.to(device)
+        img = img.to(device)
+        pose = label.to(device)
 
         pose_out, _, _, _, pose_seg = model_cond(pose)
-        out, latent_loss = model_img(img, pose_seg)
+        out, latent_loss = model_img(img_0, pose_seg)
         lst_D_img = model_D(img)
         lst_D_out = model_D(out)
 
         # Important, want to regres to appearance
-        recon_loss = criterion(out, pose)
+        recon_loss = criterion(out, img)
         latent_loss = latent_loss.mean()
 
         loss_G_img = _cal_gan_loss(lst_D_out[0][0], True)
@@ -77,7 +75,7 @@ def train(epoch, loader, dic_model, scheduler, device):
             loss_D_img += _cal_gan_loss(lst_D_out[j][0], False)
             loss_D_img += _cal_gan_loss(lst_D_img[j][0], True)
 
-        loss = recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img
+        loss = recon_loss + latent_loss_weight * latent_loss #+ weight_gan * loss_G_img
 
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
@@ -93,7 +91,7 @@ def train(epoch, loader, dic_model, scheduler, device):
         optimizer_img.step()
 
         loss_D_img.backward()
-        optimizer_D.step()
+        # optimizer_D.step()
 
         mse_sum += recon_loss.item() * img.shape[0]
         mse_n += img.shape[0]
@@ -128,8 +126,8 @@ def train(epoch, loader, dic_model, scheduler, device):
 
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
-                torch.cat([img[:sample_size], pose_out[:sample_size],
-                           out[:sample_size], pose[:sample_size]], 0),
+                torch.cat([img_0[:sample_size], img[:sample_size],
+                           out[:sample_size], pose[:sample_size], pose_out[:sample_size]], 0),
                 img_save_name,
                 nrow=sample_size,
                 normalize=True,
@@ -137,7 +135,7 @@ def train(epoch, loader, dic_model, scheduler, device):
             )
             img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size,
-                       opts={'title': 'pose-vq_img-img_out-gt'})
+                       opts={'title': 'img_0-img_gt-img_out-pose_gt-pose_vq'})
 
             model.train()
 
@@ -169,7 +167,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_76_D'
+    EXPERIMENT_CODE = 'as_82'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -181,12 +179,11 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE;Z=pose;Seg=app;Discriminator;
+        SPADE;Z=img_0;Seg=pose;without Discriminator;
     """\
-                  f'file: tz_main_v18_c26_spade.py;\n '\
+                  f'file: tz_main_v18_2_2_spade.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
-
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
@@ -217,7 +214,7 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/app/vqvae_264.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_04/vqvae_462.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
