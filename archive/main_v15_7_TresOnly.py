@@ -13,7 +13,7 @@ from PIL import Image
 
 from vq_vae_2_pytorch.scheduler import CycleScheduler
 
-from archive.dataloader_v04 import iPERLoader
+from dataloader_v04 import iPERLoader
 from archive.networks_v10 import VQVAE, AppVQVAE
 from archive.networks_transfer_v01_2 import TransferModel
 
