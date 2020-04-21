@@ -107,9 +107,10 @@ def train(epoch, loader, dic_model, scheduler, device):
 
         optimizer_img.zero_grad()
         optimizer_cond.zero_grad()
+        optimizer_spade.zero_grad()
         optimizer_D.zero_grad()
         loss.backward(retain_graph=True)
-        optimizer_img.step()
+        optimizer_spade.step()
 
         loss_D_img.backward()
         optimizer_D.step()
