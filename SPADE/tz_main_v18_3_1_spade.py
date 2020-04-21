@@ -96,7 +96,7 @@ def train(epoch, loader, dic_model, scheduler, device):
             loss_D_img += _cal_gan_loss(lst_D_img[j][0], True)
 
         # loss = recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img
-        loss = recon_loss + weight_gan * loss_G_img
+        loss = recon_loss #+ weight_gan * loss_G_img
 
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
@@ -112,7 +112,7 @@ def train(epoch, loader, dic_model, scheduler, device):
         optimizer_img.step()
 
         loss_D_img.backward()
-        optimizer_D.step()
+        # optimizer_D.step()
 
         mse_sum += recon_loss.item() * img.shape[0]
         mse_n += img.shape[0]
@@ -188,7 +188,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_85'
+    EXPERIMENT_CODE = 'as_86'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -200,9 +200,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE;Z=average img_0;Seg=pose;Discriminator;
+        SPADE;Z=average img_0;Seg=pose;without Discriminator;
     """\
-                  f'file: tz_main_v18_3_spade.py;\n '\
+                  f'file: tz_main_v18_3_1_spade.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
