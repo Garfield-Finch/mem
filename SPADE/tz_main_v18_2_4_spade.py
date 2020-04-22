@@ -145,14 +145,23 @@ def train(epoch, loader, dic_model, scheduler, device):
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
-             ([mse_sum / mse_n], 'MSE'),
-             (lst_loss_D, 'loss_D'),
-             (lst_loss_G, 'loss_G')
+             ([mse_sum / mse_n], 'MSE')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
                  win='loss',
                  opts=dict(title='loss', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
+
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_D, 'loss_D'),
+             (lst_loss_G, 'loss_G')
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_GAN',
+                 opts=dict(title='loss_GAN', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
 
