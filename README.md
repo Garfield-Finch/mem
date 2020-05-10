@@ -1,3 +1,6 @@
+### v18
+- experiment v07_01 tz_main_18_2_4.py
+ 
 ### v17
 Enlarge dimension of VQVAE memory vectors to 128 and 96 respectively.
 embed_dim=128 has improved performance.
