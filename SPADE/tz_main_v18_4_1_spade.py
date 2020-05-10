@@ -16,7 +16,7 @@ from torchvision import datasets, transforms, utils
 # from utils.vqvae import VQVAE
 from tz_networks_v12_spade import appVQVAE, VQVAE_SPADE, poseVQVAE, MultiscaleDiscriminator
 # from vq_vae_2_pytorch.scheduler import CycleScheduler
-from tz_dataloader_v05 import iPERLoader
+from tz_dataloader_v05_1 import iPERLoader
 
 from options.tz_train_options import TrainOptions
 
@@ -167,7 +167,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_90'
+    EXPERIMENT_CODE = 'as_91'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -203,10 +203,10 @@ if __name__ == '__main__':
 
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
-    print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_034.pt'))
-    model.eval()
-    print('Complete !')
+    # print('Loading Model...', end='')
+    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_034.pt'))
+    # model.eval()
+    # print('Complete !')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
