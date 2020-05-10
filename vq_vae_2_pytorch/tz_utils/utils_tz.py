@@ -1,7 +1,7 @@
 import numpy as np
 from PIL import Image
 # import matplotlib
-# import cv2
+import cv2
 import pickle
 import os
 from tqdm import tqdm
@@ -302,40 +302,55 @@ def _gen_namelist():
             file.write(str(ans[i]) + '\n')
 
 
-def eli_watermark():
-    data_root = '/p300/mem/mem_src/vq_vae_2_pytorch/tz_utils'
-    img_nm = os.path.join(data_root, '001.jpg')
-    img = Image.open(img_nm)
-    np_img = np.array(img)
+def _background_black2white():
+    """change the background of skeleton images from black to white"""
+    root_path = "/p300/dataset/iPER/skeletons_hand/"
+    lst_root_dir = os.listdir(root_path)
+    lst_root_dir.sort()
 
-    print(np_img.shape)
-    # print(np_img)
+    # for root_dir in lst_root_dir:
+    #     path_root_dir = os.path.join(root_path, root_dir)
+    #     lst_sub_dir = os.listdir(path_root_dir)
+    #     lst_sub_dir.sort()
+    #
+    #     for sub_dir in lst_sub_dir:
+    #         path_sub_dir = os.path.join(root_path, root_dir, sub_dir)
+    #         lst_img_dir = os.listdir(path_sub_dir)
+    #         lst_img_dir.sort()
+    root_dir = '010'
+    sub_dir = '2'
+    lst_img_dir = ['1', '2']
 
-    h, w, c = np_img.shape
-    # [686, 511, 3]
-    threshold = 120
+    for img_dir in lst_img_dir:
+        path_img_dir = os.path.join(root_path, root_dir, sub_dir, img_dir)
+        lst_img = os.listdir(path_img_dir)
+        lst_img.sort()
 
-    mark_prev = np_img[46:95, 0:35, :]
+        # file_nm = os.path.join(path_img_dir, 'kps.pkl').replace('images_HD', 'smpls')
 
-    for i in tqdm(range(h)):
-        for j in tqdm(range(w)):
-            pix = np_img[i, j, :]
-            if pix[0] > threshold and pix[1] > threshold and pix[1] > threshold and pix[0] != 175:
-                np_img[i, j, 0] = 255
-                np_img[i, j, 1] = 255
-                np_img[i, j, 2] = 255
-
-    img_out_nm = os.path.join('/p300/mem/mem_src/vq_vae_2_pytorch/tz_utils', 'out_1.jpg')
-    img_out = Image.fromarray(np_img)
-    img_out.save(img_out_nm)
-
-    img_test_nm = os.path.join('/p300/mem/mem_src/vq_vae_2_pytorch/tz_utils', 'test.jpg')
-    img_test = Image.fromarray(mark_prev)
-    img_test.save(img_test_nm)
+        for img_nm in tqdm(lst_img):
+            path_img = os.path.join(path_img_dir, img_nm)
+            img = cv2.imread(path_img)
+            h, w, _ = img.shape
+            for i in range(h):
+                for j in range(w):
+                    if img[i, j, :].sum() < 50:
+                        img[i, j, :] = [255, 255, 255]
+            # img_number = int(img_nm[:-4])
+            # kps = data[img_number]
+            # img_in = (np.ones([1024, 1024, 3]) * 255).astype(np.uint8)
+            # kps = _translate_kpts(kps, img_in.shape[0])
+            # img_out = draw_skeleton(input_image=img_in, joints=kps)
+            #
+            # im = Image.fromarray(img_out)
+            # img_save_path = os.path.join(save_dir_path, img_nm).replace('.jpg', '.png')
+            # im.save(img_save_path)
+            cv2.imwrite(path_img, img)
+            # print(path_img)
 
 
 if __name__ == "__main__":
     pass
     # _gen_skeleton()
     # _gen_namelist()
-    eli_watermark()
+    _background_black2white()
