@@ -118,7 +118,7 @@ class iPERDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, item):
         img_app_nm = self.input_nm_list[item]
-        img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand').replace('.jpg', '.jpg')
+        img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand_white').replace('.jpg', '.jpg')
         img_app = Image.open(img_app_nm)
         img_pose = Image.open(img_pose_nm)
 
@@ -134,7 +134,7 @@ class iPERDataset(torch.utils.data.Dataset):
                     index_s = self.input_statistics[i - 1]
                     break
         img_app_nm = self.input_nm_list[index_s]
-        img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand').replace('.jpg', '.jpg')
+        img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand_white').replace('.jpg', '.jpg')
         img_app = Image.open(img_app_nm)
         img_pose = Image.open(img_pose_nm)
 
