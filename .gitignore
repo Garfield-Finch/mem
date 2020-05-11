@@ -2,6 +2,7 @@
 .idea
 *.iml
 *.pyc
+*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
