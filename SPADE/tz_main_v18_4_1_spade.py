@@ -181,7 +181,7 @@ if __name__ == '__main__':
     DESCRIPTION = """
         SPADE;Z=img_0;Seg=pose; without Discriminator;
     """\
-                  f'file: tz_main_v18_4_spade.py;\n '\
+                  f'file: tz_main_v18_4_1_spade.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 

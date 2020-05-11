@@ -319,7 +319,7 @@ def _background_black2white():
     #         lst_img_dir.sort()
     root_dir = '010'
     sub_dir = '2'
-    lst_img_dir = ['1', '2']
+    lst_img_dir = ['2']
 
     for img_dir in lst_img_dir:
         path_img_dir = os.path.join(root_path, root_dir, sub_dir, img_dir)
@@ -329,6 +329,9 @@ def _background_black2white():
         # file_nm = os.path.join(path_img_dir, 'kps.pkl').replace('images_HD', 'smpls')
 
         for img_nm in tqdm(lst_img):
+            if not img_nm.endswith('.jpg'):
+                print(img_nm)
+                continue
             path_img = os.path.join(path_img_dir, img_nm)
             img = cv2.imread(path_img)
             h, w, _ = img.shape
@@ -345,7 +348,8 @@ def _background_black2white():
             # im = Image.fromarray(img_out)
             # img_save_path = os.path.join(save_dir_path, img_nm).replace('.jpg', '.png')
             # im.save(img_save_path)
-            cv2.imwrite(path_img, img)
+            path_img_save = path_img.replace('skeletons_hand', 'skeletons_hand_white')
+            cv2.imwrite(path_img_save, img)
             # print(path_img)
 
 

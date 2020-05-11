@@ -13,7 +13,7 @@ from torchvision import datasets, transforms, utils
 
 from utils.vqvae import VQVAE
 from vq_vae_2_pytorch.scheduler import CycleScheduler
-from utils.dataloader_v05 import iPERLoader
+from utils.dataloader_v05_1 import iPERLoader
 
 
 def train(epoch, loader, model, optimizer, scheduler, device):
@@ -22,12 +22,12 @@ def train(epoch, loader, model, optimizer, scheduler, device):
     criterion = nn.MSELoss()
 
     latent_loss_weight = 0.25
-    sample_size = 25
+    sample_size = 8
 
     mse_sum = 0
     mse_n = 0
 
-    for i, (img, pose) in enumerate(loader):
+    for i, (_, _, img, pose) in enumerate(loader):
         model.zero_grad()
 
         # Let the input be the pose skeleton
@@ -66,7 +66,7 @@ def train(epoch, loader, model, optimizer, scheduler, device):
             with torch.no_grad():
                 out, _ = model(sample)
 
-            img_save_name = f'sample/pose_04_black/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
+            img_save_name = f'sample/pose_06_black/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
                 torch.cat([sample, out], 0),
                 img_save_name,
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '1,2,3'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
 
     device = 'cuda'
     torch.backends.cudnn.benchmark = True
@@ -113,7 +113,7 @@ if __name__ == '__main__':
         ]
     )
 
-    _, _, loader = iPERLoader(data_root=args.path, batch=64, transform=transform).data_load()
+    loader, _, _ = iPERLoader(data_root=args.path, batch=128, transform=transform).data_load()
 
     model = VQVAE().to(device)
     model = nn.DataParallel(model).cuda()
