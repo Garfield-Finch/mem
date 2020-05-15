@@ -167,8 +167,8 @@ def train(epoch, loader_train, dic_model, scheduler, device):
                  )
 
 
-def val(epoch, loader_eval, dic_model, scheduler, device):
-    loader = tqdm(loader_eval)
+def val(epoch, loader_val, dic_model, scheduler, device):
+    loader = tqdm(loader_val)
 
     model_img = dic_model['model_img']
     optimizer_img = dic_model['optimizer_img']
@@ -322,7 +322,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_113'
+    EXPERIMENT_CODE = 'as_114'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -334,9 +334,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE;Z=img_0;Seg=pose; w/o Discriminator;
+        SPADE;Z=img_0;Seg=pose; w/o Discriminator; as_90/121.pt; pose06/010.pt;
     """\
-                  f'file: tz_main_v19_4.py;\n '\
+                  f'file: tz_main_v19_5.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -359,10 +359,10 @@ if __name__ == '__main__':
 
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
-    # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
-    # model.eval()
-    # print('Complete !')
+    print('Loading Model_SPADE...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
+    model.eval()
+    print('Complete !')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
@@ -370,7 +370,7 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_016.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_010.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
