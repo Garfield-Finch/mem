@@ -75,7 +75,7 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             loss_D_img += _cal_gan_loss(lst_D_out[j][0], False)
             loss_D_img += _cal_gan_loss(lst_D_img[j][0], True)
 
-        loss = recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img
+        loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img) * 10
 
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
@@ -91,7 +91,7 @@ def train(epoch, loader_train, dic_model, scheduler, device):
         optimizer_img.step()
 
         loss_D_img.backward()
-        # optimizer_D.step()
+        optimizer_D.step()
 
         mse_sum += recon_loss.item() * img.shape[0]
         mse_n += img.shape[0]
@@ -135,9 +135,9 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             )
             img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='transfer', nrow=sample_size,
-                       opts={'title': 'img_0-img_gt-img_out-pose_gt-pose_vq'})
+                       opts={'title': 'TRAIN: img_0-img_gt-img_out-pose_gt-pose_vq'})
 
-            model.train()
+            # model.train()
 
         # # increase the sequence of saving model
         # if i % 200 == 0:
@@ -145,14 +145,23 @@ def train(epoch, loader_train, dic_model, scheduler, device):
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
-             ([mse_sum / mse_n], 'MSE'),
-             (lst_loss_D, 'loss_D'),
-             (lst_loss_G, 'loss_G')
+             ([mse_sum / mse_n], 'MSE')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
                  win='loss',
                  opts=dict(title='loss', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
+
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_D, 'loss_D'),
+             (lst_loss_G, 'loss_G')
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_GAN',
+                 opts=dict(title='loss_GAN', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
 
@@ -220,13 +229,13 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
         if scheduler is not None:
             scheduler.step()
 
-        optimizer_img.zero_grad()
-        optimizer_cond.zero_grad()
-        optimizer_D.zero_grad()
-        loss.backward(retain_graph=True)
-        optimizer_img.step()
+        # optimizer_img.zero_grad()
+        # optimizer_cond.zero_grad()
+        # optimizer_D.zero_grad()
+        # loss.backward(retain_graph=True)
+        # optimizer_img.step()
 
-        loss_D_img.backward()
+        # loss_D_img.backward()
         # optimizer_D.step()
 
         mse_sum += recon_loss.item() * img.shape[0]
@@ -271,7 +280,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
             )
             img_show = np.transpose(np.asarray(Image.open(img_save_name)), (2, 0, 1))
             viz.images(img_show, win='val_transfer', nrow=sample_size,
-                       opts={'title': 'img_0-img_gt-img_out-pose_gt-pose_vq'})
+                       opts={'title': 'VAL: img_0-img_gt-img_out-pose_gt-pose_vq'})
 
             # model.train()
 
@@ -281,14 +290,23 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
-             ([mse_sum / mse_n], 'MSE'),
-             (lst_loss_D, 'loss_D'),
-             (lst_loss_G, 'loss_G')
+             ([mse_sum / mse_n], 'MSE')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
                  win='val_loss',
-                 opts=dict(title='loss', showlegend=True),
+                 opts=dict(title='val_loss', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
+
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_D, 'loss_D'),
+             (lst_loss_G, 'loss_G')
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='val_loss_GAN',
+                 opts=dict(title='val_loss_GAN', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
 
@@ -303,7 +321,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_100'
+    EXPERIMENT_CODE = 'as_101'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -315,9 +333,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE;Z=img_0;Seg=pose; without Discriminator;
+        SPADE;Z=img_0;Seg=pose; Discriminator;
     """\
-                  f'file: tz_main_v18_5_spade.py;\n '\
+                  f'file: tz_main_v19.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -340,10 +358,10 @@ if __name__ == '__main__':
 
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
-    print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
-    model.eval()
-    print('Complete !')
+    # print('Loading Model...', end='')
+    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
+    # model.eval()
+    # print('Complete !')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
@@ -358,10 +376,10 @@ if __name__ == '__main__':
 
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
-    print('Loading Model_D...', end='')
-    model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_D_121.pt'))
-    model_D.eval()
-    print('Complete !')
+    # print('Loading Model_D...', end='')
+    # model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_D_121.pt'))
+    # model_D.eval()
+    # print('Complete !')
     optimizer_D = optim.Adam(model_D.parameters(), lr=args.lr)
     # if args.sched == 'cycle':
     #     scheduler = CycleScheduler(

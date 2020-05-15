@@ -17,6 +17,16 @@ import numpy as np
 import pickle
 
 
+def _gen_pose_name(img_nm):
+    ans = img_nm.replace('images_HD', 'skeletons_hand').replace('.jpg', '.jpg')
+    lst_img_ans = ans.split('/')
+    img_number_pre = lst_img_ans[:-4]
+    if len(img_number_pre) < 4:
+        img_number = img_number_pre.zfill(4)
+        ans = ans.replace(img_number_pre, img_number)
+    return ans
+
+
 class iPERLoader:
 
     def __init__(self, data_root, batch=2, workers=8, img_size=256, transform=None):
@@ -127,7 +137,8 @@ class iPERDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, item):
         img_app_nm = self.input_nm_list[item]
-        img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand').replace('.jpg', '.jpg')
+        # img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand').replace('.jpg', '.jpg')
+        img_pose_nm = _gen_pose_name(img_app_nm)
         img_app = Image.open(img_app_nm)
         img_pose = Image.open(img_pose_nm)
 
@@ -143,7 +154,8 @@ class iPERDataset(torch.utils.data.Dataset):
                     index_s = self.input_statistics[i - 1]
                     break
         img_app_nm = self.input_nm_list[index_s]
-        img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand').replace('.jpg', '.jpg')
+        # img_pose_nm = img_app_nm.replace('images_HD', 'skeletons_hand').replace('.jpg', '.jpg')
+        img_pose_nm = _gen_pose_name(img_app_nm)
         img_app = Image.open(img_app_nm)
         img_pose = Image.open(img_pose_nm)
 
