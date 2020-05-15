@@ -321,7 +321,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_101'
+    EXPERIMENT_CODE = 'as_110'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -335,7 +335,7 @@ if __name__ == '__main__':
     DESCRIPTION = """
         SPADE;Z=img_0;Seg=pose; Discriminator;
     """\
-                  f'file: tz_main_v19.py;\n '\
+                  f'file: tz_main_v19_1.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -353,7 +353,7 @@ if __name__ == '__main__':
         ]
     )
 
-    loader_train, loader_eval, _ = \
+    loader_train, loader_val, _ = \
         iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
@@ -369,7 +369,7 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_010.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_016.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
@@ -397,6 +397,6 @@ if __name__ == '__main__':
     for i in range(args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(i, loader_train, dic_model, scheduler, device)
-        val(i, loader_train, dic_model, scheduler, device)
+        val(i, loader_val, dic_model, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_D_{str(i + 1).zfill(3)}.pt')
