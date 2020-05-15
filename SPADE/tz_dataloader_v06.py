@@ -86,6 +86,7 @@ class iPERLoader:
             shuffle=True
         )
 
+        print(train_loader.dataset.__len__(), val_loader.dataset.__len__())
         return train_loader, val_loader, test_loader
         # return train_loader, val_loader
 
@@ -117,10 +118,16 @@ class iPERDataset(torch.utils.data.Dataset):
             dir_img.sort()
 
             # dir_img is the directory containing all the images, separate which would separate train, eval and test set
+            divide_point = round(0.8 * len(dir_img))
             if self.subset == 'train':
-                dir_img = dir_img[:round(0.8 * len(dir_img))]
-            elif self.subset == 'eval':
-                dir_img = dir_img[:1] + dir_img[round(0.8 * len(dir_img)):]
+                dir_img = dir_img[:divide_point]
+            elif self.subset == 'val':
+                dir_img = dir_img[:1] + dir_img[divide_point:]
+            elif self.subset == 'test':
+                dir_img = dir_img[:1] + dir_img[divide_point:]
+            else:
+                print('ERROR: wrong subset name')
+                exit()
 
             for j in range(len(dir_img)):
                 dir_img[j] = os.path.join(self.data_root, 'images_HD', i[:-1], dir_img[j])
