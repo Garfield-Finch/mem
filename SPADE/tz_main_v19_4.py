@@ -33,7 +33,8 @@ def train(epoch, loader_train, dic_model, scheduler, device):
 
     model_img.train()
     model_cond.train()
-    model_D.train()
+    # model_D.train()
+    model_D.eval()
 
     criterion = nn.MSELoss()
 
@@ -91,7 +92,7 @@ def train(epoch, loader_train, dic_model, scheduler, device):
         optimizer_img.step()
 
         loss_D_img.backward()
-        optimizer_D.step()
+        # optimizer_D.step()
 
         mse_sum += recon_loss.item() * img.shape[0]
         mse_n += img.shape[0]
@@ -321,7 +322,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_112'
+    EXPERIMENT_CODE = 'as_111'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -333,9 +334,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE;Z=img_0;Seg=pose; Discriminator;
+        SPADE;Z=img_0;Seg=pose; w/o Discriminator;
     """\
-                  f'file: tz_main_v19_3.py;\n '\
+                  f'file: tz_main_v19_2.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -358,10 +359,10 @@ if __name__ == '__main__':
 
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
-    print('Loading Model_SPADE...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_101/vqvae_072.pt'))
-    model.eval()
-    print('Complete !')
+    # print('Loading Model...', end='')
+    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
+    # model.eval()
+    # print('Complete !')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
@@ -376,10 +377,10 @@ if __name__ == '__main__':
 
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
-    print('Loading Model_D...', end='')
-    model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_101/vqvae_D_072.pt'))
-    model_D.eval()
-    print('Complete !')
+    # print('Loading Model_D...', end='')
+    # model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_D_121.pt'))
+    # model_D.eval()
+    # print('Complete !')
     optimizer_D = optim.Adam(model_D.parameters(), lr=args.lr)
     # if args.sched == 'cycle':
     #     scheduler = CycleScheduler(
