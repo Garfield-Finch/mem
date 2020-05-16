@@ -198,6 +198,8 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
     lst_loss_G = []
     lst_loss_D = []
     for i, (img_0, pose_0, img, label) in enumerate(loader):
+        if i % 11 == 0:
+            break
         img_0 = img_0.to(device)
         img = img.to(device)
         pose = label.to(device)
@@ -251,7 +253,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
             )
         )
 
-        if i % 100 == 0:
+        if i % 5 == 0:
             # model.eval()
 
             # sample = img[:sample_size]
