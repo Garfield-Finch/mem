@@ -121,7 +121,7 @@ class iPERDataset(torch.utils.data.Dataset):
 
         # load items from a txt file
         # nm_file = os.path.join(data_root, f'{subset}.txt')
-        nm_file = os.path.join(data_root, f'test_3.txt')
+        nm_file = os.path.join(data_root, f'test_4.txt')
         self.lst_dir = []
         with open(nm_file, 'r') as f:
             self.lst_dir = f.readlines()
@@ -167,7 +167,10 @@ class iPERDataset(torch.utils.data.Dataset):
             .replace('skeletons_hand', 'skeletons_facehand')
         with open(nm_file_face, 'rb') as fo:  # 读取pkl文件数据
             dict_data = pickle.load(fo, encoding='bytes')
-            data_face = dict_data['pose_keypoints_2d'][int(img_pose_nm.split('/')[-1][:-4])]
+            data_face = dict_data['face_keypoints_2d'][int(img_pose_nm.split('/')[-1][:-4])]
+            print(dict_data.keys())
+            for i in dict_data.keys():
+                print(i, len(dict_data[i]))
             bbox = _gen_bbox(data_face)
 
         tsr_app_t = self.transform(img_app)  # the tensor containing target image
