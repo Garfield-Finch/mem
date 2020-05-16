@@ -123,7 +123,7 @@ class iPERDataset(torch.utils.data.Dataset):
             if self.subset == 'train':
                 dir_img = dir_img[:divide_point_val]
             elif self.subset == 'val':
-                dir_img = dir_img[:1] + dir_img[divide_point_val:divide_point_val]
+                dir_img = dir_img[:1] + dir_img[divide_point_val:divide_point_test]
             elif self.subset == 'test':
                 dir_img = dir_img[:1] + dir_img[divide_point_test:]
             else:
