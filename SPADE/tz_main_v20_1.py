@@ -174,7 +174,7 @@ def train(epoch, loader_train, dic_model, scheduler, device):
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
              ([mse_sum / mse_n], 'MSE'),
-             (loss_face, 'face')
+             (lst_loss_face, 'face')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
@@ -356,7 +356,7 @@ def val(epoch, loader_val, dic_model, scheduler, device):
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
              ([mse_sum / mse_n], 'MSE'),
-             (loss_face, 'face')
+             (lst_loss_face, 'face')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
