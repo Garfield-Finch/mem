@@ -86,7 +86,7 @@ class iPERLoader:
         )
 
         print(f'train_set scale: {train_loader.dataset.__len__()}, '
-              f'val_set scale: {val_loader.dataset.__len__()}'
+              f'val_set scale: {val_loader.dataset.__len__()}, '
               f'test_set scale: {test_loader.dataset.__len__()}')
         return train_loader, val_loader, test_loader
 
