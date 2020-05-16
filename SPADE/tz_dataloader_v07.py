@@ -28,9 +28,6 @@ def _gen_pose_name(img_nm):
 
 
 def _gen_bbox(face_kpts):
-    print('=========== test point 4 in _gen_bbox ==================')
-    print(len(face_kpts))
-    print(type(face_kpts))
     face_xs = face_kpts[:, 0]
     face_ys = face_kpts[:, 1]
     x_min = face_xs.min()
@@ -199,7 +196,7 @@ class iPERDataset(torch.utils.data.Dataset):
         tsr_app_s = self.transform(img_app)
         tsr_pose_s = self.transform(img_pose)
 
-        return tsr_app_s, tsr_pose_s, tsr_app_t, tsr_pose_t, bbox, data_face
+        return tsr_app_s, tsr_pose_s, tsr_app_t, tsr_pose_t, bbox
 
     def __len__(self):
         return len(self.input_nm_list)

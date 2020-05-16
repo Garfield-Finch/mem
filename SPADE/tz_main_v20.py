@@ -54,7 +54,8 @@ def train(epoch, loader_train, dic_model, scheduler, device):
     lst_loss = []
     lst_loss_G = []
     lst_loss_D = []
-    for i, (img_0, pose_0, img, label, bbox, kpts) in enumerate(loader):
+    lst_loss_face = []
+    for i, (img_0, pose_0, img, label, bbox) in enumerate(loader):
         img_0 = img_0.to(device)
         img = img.to(device)
         pose = label.to(device)
@@ -77,31 +78,23 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             loss_D_img += _cal_gan_loss(lst_D_out[j][0], False)
             loss_D_img += _cal_gan_loss(lst_D_img[j][0], True)
 
-        # print(bbox)
-        # bbox = torch.Tensor(bbox)
-        # print(type(bbox))
-        # # bbox = np.array(bbox)
-        # bbox = bbox.reshape([-1, 4])
-        # print(bbox.shape)
-
+        # # face loss called here
+        # transpose bbox
         batch_size = img_0.shape[0]
         bbox_re = [[] for _ in range(batch_size)]
-
         for i_batch in range(batch_size):
             for i_pt in range(4):
                 bbox_re[i_batch].append(bbox[i_pt][i_batch])
-        print('====================== test point 1 =====================')
-        print(len(bbox_re))
-        print(len(bbox_re[0]))
-        loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img) * 10
-        loss_face, head_imgs_out, head_imgs_img = model_face(imgs1=img, imgs2=out, bbox1=bbox_re, bbox2=bbox_re)
-        # loss_face, head_imgs_out, head_imgs_img = model_face(imgs1=out, imgs2=img, kps1=kpts, kps2=kpts)
-        print('====================== test point 2 =====================')
-        # print(loss_face.item())
+        bbox = bbox_re
+        loss_face, head_imgs_out, head_imgs_img = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+
+        # THE MAIN LOSS
+        loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img + loss_face) * 10
 
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
         lst_loss_D.append(loss_D_img.item())
+        lst_loss_face.append(loss_face.item())
 
         if scheduler is not None:
             scheduler.step()
@@ -128,24 +121,7 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             )
         )
 
-        if i % 1 == 0:
-            # model.eval()
-
-            # sample = img[:sample_size]
-
-            # with torch.no_grad():
-            #     out, _ = model(sample)
-
-            # img_show = (torch.cat([sample, out]).to('cpu').detach().numpy() * 0.5 + 0.5) * 255
-            # viz.images(
-            #     img_show,
-            #     win='sample-out',
-            #     nrow=sample_size,
-            #     opts={
-            #         'title': 'sample-out',
-            #     }
-            # )
-
+        if i % 100 == 0:
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
                 torch.cat([img_0[:sample_size], img[:sample_size],
@@ -159,34 +135,11 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             viz.images(img_show, win='transfer', nrow=sample_size,
                        opts={'title': 'TRAIN: img_0-img_gt-img_out-pose_gt-pose_vq'})
 
-            viz.images(head_imgs_out, win='head_imgs_out', nrow=sample_size,
-                       opts={'title': 'TRAIN: head_imgs_out'})
-
-            viz.images(head_imgs_img, win='head_imgs_img', nrow=sample_size,
-                       opts={'title': 'TRAIN: head_imgs_img'})
-
+            # to visualize the face
             head_img_vis = (np.array(img[0].detach().cpu()) + 1) / 2 * 255
-            print('===================== test point 7 ======================')
-            print(head_img_vis.shape)
-            print(type(head_img_vis))
-            bbox = bbox_re
-            for i_x in range(min(bbox[0][0], bbox[0][1]), max(bbox[0][0], bbox[0][1])):
-                for i_y in range(min(bbox[0][2], bbox[0][3]), max(bbox[0][2], bbox[0][3])):
-                    head_img_vis[:, i_y, i_x] = [255, 0, 0]
-            viz.images(head_img_vis, win='head_img_vis', nrow=sample_size,
-                       opts={'title': 'TRAIN: head_imgs_out'})
-            # bbox = bbox_re
-            # x_min = min(bbox[0][0], bbox[0][1])
-            # x_max = max(bbox[0][0], bbox[0][1])
-            # y_min = min(bbox[0][2], bbox[0][3])
-            # y_max = max(bbox[0][2], bbox[0][3])
-            # print(x_min, x_max, y_min, y_max)
-            # for i_x in range(x_min, x_max):
-            #     for i_y in range(y_min, y_max):
-            #         print(img[0, :, 0, 0])
-            #         img[0, :, i_x, i_y] = [255, 0, 0]
-
-            # model.train()
+            head_img_vis[0, bbox[0][2]:bbox[0][3], bbox[0][0]:bbox[0][1]] = 255
+            viz.images(head_img_vis, win='vis_face', nrow=sample_size,
+                       opts={'title': 'TRAIN: vis face'})
 
         # # increase the sequence of saving model
         # if i % 200 == 0:
@@ -194,7 +147,8 @@ def train(epoch, loader_train, dic_model, scheduler, device):
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
-             ([mse_sum / mse_n], 'MSE')
+             ([mse_sum / mse_n], 'MSE'),
+             (loss_face, 'face')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
@@ -215,8 +169,8 @@ def train(epoch, loader_train, dic_model, scheduler, device):
                  )
 
 
-def val(epoch, loader_eval, dic_model, scheduler, device):
-    loader = tqdm(loader_eval)
+def val(epoch, loader_val, dic_model, scheduler, device):
+    loader = tqdm(loader_val)
 
     model_img = dic_model['model_img']
     optimizer_img = dic_model['optimizer_img']
@@ -224,6 +178,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
     optimizer_cond = dic_model['optimizer_cond']
     model_D = dic_model['model_D']
     optimizer_D = dic_model['optimizer_D']
+    model_face = dic_model['model_face']
 
     model_img.eval()
     model_cond.eval()
@@ -246,7 +201,8 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
     lst_loss = []
     lst_loss_G = []
     lst_loss_D = []
-    for i, (img_0, pose_0, img, label) in enumerate(loader):
+    lst_loss_face = []
+    for i, (img_0, pose_0, img, label, bbox) in enumerate(loader):
         img_0 = img_0.to(device)
         img = img.to(device)
         pose = label.to(device)
@@ -269,11 +225,23 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
             loss_D_img += _cal_gan_loss(lst_D_out[j][0], False)
             loss_D_img += _cal_gan_loss(lst_D_img[j][0], True)
 
-        loss = recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img
+        # # face loss called here
+        # transpose bbox
+        batch_size = img_0.shape[0]
+        bbox_re = [[] for _ in range(batch_size)]
+        for i_batch in range(batch_size):
+            for i_pt in range(4):
+                bbox_re[i_batch].append(bbox[i_pt][i_batch])
+        bbox = bbox_re
+        loss_face, head_imgs_out, head_imgs_img = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+
+        # THE MAIN LOSS
+        loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img + loss_face) * 10
 
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
         lst_loss_D.append(loss_D_img.item())
+        lst_loss_face.append(loss_face.item())
 
         if scheduler is not None:
             scheduler.step()
@@ -301,23 +269,6 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
         )
 
         if i % 100 == 0:
-            # model.eval()
-
-            # sample = img[:sample_size]
-
-            # with torch.no_grad():
-            #     out, _ = model(sample)
-
-            # img_show = (torch.cat([sample, out]).to('cpu').detach().numpy() * 0.5 + 0.5) * 255
-            # viz.images(
-            #     img_show,
-            #     win='sample-out',
-            #     nrow=sample_size,
-            #     opts={
-            #         'title': 'sample-out',
-            #     }
-            # )
-
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}v.png'
             utils.save_image(
                 torch.cat([img_0[:sample_size], img[:sample_size],
@@ -331,7 +282,11 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
             viz.images(img_show, win='val_transfer', nrow=sample_size,
                        opts={'title': 'VAL: img_0-img_gt-img_out-pose_gt-pose_vq'})
 
-            # model.train()
+            # to visualize the face
+            head_img_vis = (np.array(img[0].detach().cpu()) + 1) / 2 * 255
+            head_img_vis[0, bbox[0][2]:bbox[0][3], bbox[0][0]:bbox[0][1]] = 255
+            viz.images(head_img_vis, win='VAL_vis_face', nrow=sample_size,
+                       opts={'title': 'VAL: vis face'})
 
         # # increase the sequence of saving model
         # if i % 200 == 0:
@@ -339,7 +294,8 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
-             ([mse_sum / mse_n], 'MSE')
+             ([mse_sum / mse_n], 'MSE'),
+             (loss_face, 'face')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
@@ -370,7 +326,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_101'
+    EXPERIMENT_CODE = 'as_120'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -384,7 +340,7 @@ if __name__ == '__main__':
     DESCRIPTION = """
         SPADE;Z=img_0;Seg=pose; Discriminator;
     """\
-                  f'file: tz_main_v19.py;\n '\
+                  f'file: tz_main_v20.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -402,7 +358,7 @@ if __name__ == '__main__':
         ]
     )
 
-    loader_train, loader_eval, _ = \
+    loader_train, loader_val, _ = \
         iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
@@ -418,7 +374,7 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_04/vqvae_462.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_029.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
@@ -435,7 +391,7 @@ if __name__ == '__main__':
     #         optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
     #     )
 
-    model_face = FaceLoss(pretrained_path='/p300/mem/mem_src/face/sphere20a_20171020.pth')
+    model_face = FaceLoss(pretrained_path='/p300/mem/mem_src/face/sphere20a_20171020.pth').to(device)
 
     dic_model = {'model_img': model, 'model_cond': model_cond,
                  # 'model_transfer': model_transfer,
@@ -449,6 +405,6 @@ if __name__ == '__main__':
     for i in range(args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(i, loader_train, dic_model, scheduler, device)
-        val(i, loader_train, dic_model, scheduler, device)
+        val(i, loader_val, dic_model, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_D_{str(i + 1).zfill(3)}.pt')
