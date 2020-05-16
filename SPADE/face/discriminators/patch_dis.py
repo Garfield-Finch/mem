@@ -257,3 +257,79 @@ class MultiScaleDiscriminator(nn.Module):
             avg /= num
             return avg
 
+
+class HeadDiscriminator(nn.Module):
+    def __init__(self, input_nc, ndf=32, n_layers=3, max_nf_mult=8, norm_type='batch', use_sigmoid=False):
+        super(HeadDiscriminator, self).__init__()
+
+        # if global_nc is None:
+        #     global_nc = input_nc
+        #
+        # self.global_model = PatchDiscriminator(global_nc, ndf=ndf, n_layers=n_layers, max_nf_mult=max_nf_mult,
+        #                                        norm_type=norm_type, use_sigmoid=use_sigmoid)
+        # self.body_model = PatchDiscriminator(input_nc, ndf=ndf, n_layers=n_layers, max_nf_mult=max_nf_mult,
+        #                                      norm_type=norm_type, use_sigmoid=use_sigmoid)
+        self.head_model = PatchDiscriminator(input_nc, ndf=ndf, n_layers=n_layers, max_nf_mult=max_nf_mult,
+                                             norm_type=norm_type, use_sigmoid=use_sigmoid)
+
+    def forward(self, head_imgs, get_avg=True, bs=1):
+        # if global_x is None:
+        #     global_x = local_x
+
+        # body_imgs = self.crop_img(local_x, body_rects, fact=1)
+        # head_imgs = self.crop_img(local_x, head_rects, fact=4)
+
+        # global_outs = self.global_model(global_x)
+        # outs = [global_outs]
+        outs = []
+
+        # if len(body_imgs) != 0:
+        #     body_outs = self.body_model(body_imgs)
+        #     outs.append(body_outs)
+
+        if len(head_imgs) != 0:
+            head_outs = self.head_model(head_imgs)
+            outs.append(head_outs)
+
+        if get_avg:
+            return outs, self.reduce_tensor(outs)
+        else:
+            return outs
+
+    @staticmethod
+    def crop_img(imgs, rects, fact=2):
+        """
+        Args:
+            imgs:
+            rects:
+            fact:
+
+        Returns:
+
+        """
+        bs, _, ori_h, ori_w = imgs.shape
+        crops = []
+        for i in range(bs):
+            min_x, max_x, min_y, max_y = rects[i].detach()
+            if (min_x != max_x) and (min_y != max_y):
+                _crop = imgs[i:i+1, :, min_y:max_y, min_x:max_x]  # (1, c, h', w')
+                _crop = F.interpolate(_crop, size=(ori_h // fact, ori_w // fact), mode='bilinear', align_corners=True)
+                crops.append(_crop)
+
+        if len(crops) != 0:
+            crops = torch.cat(crops, dim=0)
+
+        return crops
+
+    @staticmethod
+    def reduce_tensor(outs):
+        with torch.no_grad():
+            avg = 0.0
+            num = len(outs)
+
+            for out in outs:
+                avg += torch.mean(out)
+
+            avg /= num
+            return avg
+
