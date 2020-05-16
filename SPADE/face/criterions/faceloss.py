@@ -355,7 +355,7 @@ class FaceLoss(nn.Module):
         # import ipdb
         # ipdb.set_trace()
 
-        return loss
+        return loss, head_imgs1, head_imgs2
 
     def compute_loss(self, img1, img2):
         """
