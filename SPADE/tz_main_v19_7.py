@@ -199,7 +199,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
     lst_loss_G = []
     lst_loss_D = []
     for i, (img_0, pose_0, img, label) in enumerate(loader):
-        if i % 11 == 0:
+        if i >= 11:
             break
         img_0 = img_0.to(device)
         img = img.to(device)
@@ -254,7 +254,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
             )
         )
 
-        if i % 5 == 0:
+        if i % 3 == 0:
             # model.eval()
 
             # sample = img[:sample_size]
@@ -293,7 +293,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
-             ([mse_sum / mse_n], 'MSE')
+             ([mse_sum / (mse_n + 1e-09)], 'MSE')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
@@ -324,7 +324,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_115'
+    EXPERIMENT_CODE = 'as_116'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -371,10 +371,10 @@ if __name__ == '__main__':
 
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
-    print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_029.pt'))
-    model_cond.eval()
-    print('Complete !')
+    # print('Loading Model_condition...', end='')
+    # model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_032.pt'))
+    # model_cond.eval()
+    # print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)

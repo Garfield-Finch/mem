@@ -140,12 +140,12 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             # model.train()
 
         # # increase the sequence of saving model
-        # if i % 200 == 0:
-        #     torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
+        if i % 200 == 0:
+            torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
-             ([mse_sum / mse_n], 'MSE')
+             ([mse_sum / (mse_n + 1e-9)], 'MSE')
              ]):
         viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
                  name=line_title,
@@ -198,7 +198,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
     lst_loss_G = []
     lst_loss_D = []
     for i, (img_0, pose_0, img, label) in enumerate(loader):
-        if i % 11 == 0:
+        if i >= 11:
             break
         img_0 = img_0.to(device)
         img = img.to(device)
@@ -253,7 +253,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
             )
         )
 
-        if i % 5 == 0:
+        if i % 3 == 0:
             # model.eval()
 
             # sample = img[:sample_size]
@@ -361,9 +361,9 @@ if __name__ == '__main__':
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
     # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
+    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_001.pt'))
     # model.eval()
-    # print('Complete !')
+    print('Complete !')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
@@ -371,7 +371,7 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_029.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_032.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
@@ -379,7 +379,7 @@ if __name__ == '__main__':
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
     # print('Loading Model_D...', end='')
-    # model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_D_121.pt'))
+    # model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_D_001.pt'))
     # model_D.eval()
     # print('Complete !')
     optimizer_D = optim.Adam(model_D.parameters(), lr=args.lr)
