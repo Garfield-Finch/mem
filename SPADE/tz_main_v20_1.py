@@ -13,6 +13,7 @@ from torch import nn, optim
 # from torch.utils.data import DataLoader
 from torchvision import datasets, transforms, utils
 from face.criterions.faceloss import FaceLoss
+from face.discriminators.patch_dis import HeadDiscriminator
 
 # from utils.vqvae import VQVAE
 from tz_networks_v12_spade import appVQVAE, VQVAE_SPADE, poseVQVAE, MultiscaleDiscriminator
@@ -32,10 +33,13 @@ def train(epoch, loader_train, dic_model, scheduler, device):
     model_D = dic_model['model_D']
     optimizer_D = dic_model['optimizer_D']
     model_face = dic_model['model_face']
+    model_face_D = dic_model['model_face_D']
+    optimizer_face_D = dic_model['optimizer_face_D']
 
     model_img.train()
     model_cond.train()
     model_D.train()
+    model_face_D.train()
 
     criterion = nn.MSELoss()
 
@@ -55,23 +59,29 @@ def train(epoch, loader_train, dic_model, scheduler, device):
     lst_loss_G = []
     lst_loss_D = []
     lst_loss_face = []
+    lst_loss_face_G = []
+    lst_loss_face_D = []
+
     for i, (img_0, pose_0, img, label, bbox) in enumerate(loader):
         img_0 = img_0.to(device)
         img = img.to(device)
         pose = label.to(device)
 
+        # model forward
         pose_out, _, _, _, pose_seg = model_cond(pose)
         out, latent_loss = model_img(img_0, pose_seg)
         lst_D_img = model_D(img)
         lst_D_out = model_D(out)
 
-        # Important, want to regres to appearance
+        # Important, want to regress to appearance
         recon_loss = criterion(out, img)
         latent_loss = latent_loss.mean()
 
+        # calculate GAN loss
         loss_G_img = _cal_gan_loss(lst_D_out[0][0], True)
         for j in range(1, len(lst_D_img)):
             loss_G_img += _cal_gan_loss(lst_D_out[j][0], True)
+
         loss_D_img = _cal_gan_loss(lst_D_out[0][0], False) + \
                      _cal_gan_loss(lst_D_img[0][0], True)
         for j in range(1, len(lst_D_out)):
@@ -86,10 +96,21 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             for i_pt in range(4):
                 bbox_re[i_batch].append(bbox[i_pt][i_batch])
         bbox = bbox_re
-        loss_face = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+        loss_face, head_img_out, head_img_img = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+
+        # calculate face_GAN loss
+        lst_face_D_img = model_face_D(head_img_img, get_avg=False)
+        lst_face_D_out = model_face_D(head_img_out, get_avg=False)
+        loss_face_G = _cal_gan_loss(lst_face_D_out[0], True)
+        loss_face_D = _cal_gan_loss(lst_face_D_out[0][0], False) + _cal_gan_loss(lst_face_D_img[0][0], True)
+        lst_loss_face_D.append(loss_face_D)
+        lst_loss_face_G.append(loss_face_G)
 
         # THE MAIN LOSS
-        loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img + loss_face) * 10
+        loss = (recon_loss +
+                latent_loss_weight * latent_loss +
+                weight_gan * loss_G_img +
+                loss_face + loss_face_G) * 10
 
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
@@ -102,11 +123,16 @@ def train(epoch, loader_train, dic_model, scheduler, device):
         optimizer_img.zero_grad()
         optimizer_cond.zero_grad()
         optimizer_D.zero_grad()
+        optimizer_face_D.zero_grad()
+
         loss.backward(retain_graph=True)
         optimizer_img.step()
 
-        loss_D_img.backward()
+        loss_D_img.backward(retain_graph=True)
         optimizer_D.step()
+
+        loss_face_D.backward()
+        optimizer_face_D.step()
 
         mse_sum += recon_loss.item() * img.shape[0]
         mse_n += img.shape[0]
@@ -167,6 +193,16 @@ def train(epoch, loader_train, dic_model, scheduler, device):
                  opts=dict(title='loss_GAN', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_face_D, 'loss_face_D'),
+             (lst_loss_face_G, 'loss_face_G')
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='loss_face_GAN',
+                 opts=dict(title='loss_face_GAN', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
 
 
 def val(epoch, loader_val, dic_model, scheduler, device):
@@ -179,10 +215,13 @@ def val(epoch, loader_val, dic_model, scheduler, device):
     model_D = dic_model['model_D']
     optimizer_D = dic_model['optimizer_D']
     model_face = dic_model['model_face']
+    model_face_D = dic_model['model_face_D']
+    optimizer_face_D = dic_model['optimizer_face_D']
 
     model_img.eval()
     model_cond.eval()
     model_D.eval()
+    model_face_D.eval()
 
     criterion = nn.MSELoss()
 
@@ -202,23 +241,29 @@ def val(epoch, loader_val, dic_model, scheduler, device):
     lst_loss_G = []
     lst_loss_D = []
     lst_loss_face = []
+    lst_loss_face_G = []
+    lst_loss_face_D = []
+
     for i, (img_0, pose_0, img, label, bbox) in enumerate(loader):
         img_0 = img_0.to(device)
         img = img.to(device)
         pose = label.to(device)
 
+        # model forward
         pose_out, _, _, _, pose_seg = model_cond(pose)
         out, latent_loss = model_img(img_0, pose_seg)
         lst_D_img = model_D(img)
         lst_D_out = model_D(out)
 
-        # Important, want to regres to appearance
+        # Important, want to regress to appearance
         recon_loss = criterion(out, img)
         latent_loss = latent_loss.mean()
 
+        # calculate GAN loss
         loss_G_img = _cal_gan_loss(lst_D_out[0][0], True)
         for j in range(1, len(lst_D_img)):
             loss_G_img += _cal_gan_loss(lst_D_out[j][0], True)
+
         loss_D_img = _cal_gan_loss(lst_D_out[0][0], False) + \
                      _cal_gan_loss(lst_D_img[0][0], True)
         for j in range(1, len(lst_D_out)):
@@ -233,10 +278,21 @@ def val(epoch, loader_val, dic_model, scheduler, device):
             for i_pt in range(4):
                 bbox_re[i_batch].append(bbox[i_pt][i_batch])
         bbox = bbox_re
-        loss_face = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+        loss_face, head_img_out, head_img_img = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+
+        # calculate face_GAN loss
+        lst_face_D_img = model_face_D(head_img_img, get_avg=False)
+        lst_face_D_out = model_face_D(head_img_out, get_avg=False)
+        loss_face_G = _cal_gan_loss(lst_face_D_out[0], True)
+        loss_face_D = _cal_gan_loss(lst_face_D_out[0][0], False) + _cal_gan_loss(lst_face_D_img[0][0], True)
+        lst_loss_face_D.append(loss_face_D)
+        lst_loss_face_G.append(loss_face_G)
 
         # THE MAIN LOSS
-        loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img + loss_face) * 10
+        loss = (recon_loss +
+                latent_loss_weight * latent_loss +
+                weight_gan * loss_G_img +
+                loss_face + loss_face_G) * 10
 
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
@@ -246,14 +302,19 @@ def val(epoch, loader_val, dic_model, scheduler, device):
         if scheduler is not None:
             scheduler.step()
 
-        # optimizer_img.zero_grad()
-        # optimizer_cond.zero_grad()
-        # optimizer_D.zero_grad()
-        # loss.backward(retain_graph=True)
+        optimizer_img.zero_grad()
+        optimizer_cond.zero_grad()
+        optimizer_D.zero_grad()
+        optimizer_face_D.zero_grad()
+
+        loss.backward(retain_graph=True)
         # optimizer_img.step()
 
-        # loss_D_img.backward()
+        loss_D_img.backward(retain_graph=True)
         # optimizer_D.step()
+
+        loss_face_D.backward()
+        # optimizer_face_D.step()
 
         mse_sum += recon_loss.item() * img.shape[0]
         mse_n += img.shape[0]
@@ -285,7 +346,7 @@ def val(epoch, loader_val, dic_model, scheduler, device):
             # to visualize the face
             head_img_vis = (np.array(img[0].detach().cpu()) + 1) / 2 * 255
             head_img_vis[0, bbox[0][2]:bbox[0][3], bbox[0][0]:bbox[0][1]] = 255
-            viz.images(head_img_vis, win='VAL_vis_face', nrow=sample_size,
+            viz.images(head_img_vis, win='val_vis_face', nrow=sample_size,
                        opts={'title': 'VAL: vis face'})
 
         # # increase the sequence of saving model
@@ -314,6 +375,16 @@ def val(epoch, loader_val, dic_model, scheduler, device):
                  opts=dict(title='val_loss_GAN', showlegend=True),
                  update=None if (epoch == 0 and line_num == 0) else 'append'
                  )
+    for line_num, (lst, line_title) in enumerate(
+            [(lst_loss_face_D, 'loss_face_D'),
+             (lst_loss_face_G, 'loss_face_G')
+             ]):
+        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+                 name=line_title,
+                 win='val_loss_face_GAN',
+                 opts=dict(title='val_loss_face_GAN', showlegend=True),
+                 update=None if (epoch == 0 and line_num == 0) else 'append'
+                 )
 
 
 if __name__ == '__main__':
@@ -326,7 +397,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_120'
+    EXPERIMENT_CODE = 'as_121'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -338,9 +409,9 @@ if __name__ == '__main__':
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
     DESCRIPTION = """
-        SPADE;Z=img_0;Seg=pose; Discriminator;
+        SPADE;Z=img_0;Seg=pose; Discriminator; faceD
     """\
-                  f'file: tz_main_v20.py;\n '\
+                  f'file: tz_main_v20_1.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -361,6 +432,7 @@ if __name__ == '__main__':
     loader_train, loader_val, _ = \
         iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
+    # models
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
     # print('Loading Model...', end='')
@@ -371,6 +443,7 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
 
+    # model_cond
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
@@ -379,6 +452,7 @@ if __name__ == '__main__':
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
+    # Discriminator
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
     # print('Loading Model_D...', end='')
@@ -391,15 +465,22 @@ if __name__ == '__main__':
     #         optimizer, args.lr, n_iter=len(loader) * args.epoch, momentum=None
     #     )
 
+    # face loss as a independent model (pre-trained)
     model_face = FaceLoss(pretrained_path='/p300/mem/mem_src/face/sphere20a_20171020.pth').to(device)
+
+    # face Discriminator
+    model_face_D = HeadDiscriminator(input_nc=3).to(device)
+    optimizer_face_D = optim.Adam(model_face_D.parameters(), lr=args.lr)
 
     dic_model = {'model_img': model, 'model_cond': model_cond,
                  # 'model_transfer': model_transfer,
                  'model_D': model_D,
                  'model_face': model_face,
+                 'model_face_D': model_face_D,
                  'optimizer_img': optimizer, 'optimizer_cond': optimizer_cond,
                  # 'optimizer_transfer': optimizer_transfer
-                 'optimizer_D': optimizer_D
+                 'optimizer_D': optimizer_D,
+                 'optimizer_face_D': optimizer_face_D
                  }
 
     for i in range(args.epoch):
