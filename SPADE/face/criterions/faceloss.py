@@ -390,13 +390,6 @@ class FaceLoss(nn.Module):
 
         for i in range(bs):
             min_x, max_x, min_y, max_y = bboxs[i]
-
-            min_x = min(bboxs[i][0], bboxs[i][1])
-            max_x = max(bboxs[i][0], bboxs[i][1])
-
-            min_y = min(bboxs[i][2], bboxs[i][3])
-            max_y = max(bboxs[i][2], bboxs[i][3])
-
             if (min_x != max_x) and (min_y != max_y):
                 head = imgs[i:i+1, :, min_y:max_y, min_x:max_x]  # (1, c, h', w')
                 head = F.interpolate(head, size=(self.height, self.width), mode='bilinear', align_corners=True)
