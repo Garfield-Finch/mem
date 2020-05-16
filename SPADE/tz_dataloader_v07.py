@@ -27,22 +27,20 @@ def _gen_pose_name(img_nm):
     return ans
 
 
-def _gen_bbox(pose_25):
-    l_ear = pose_25[18]
-    r_ear = pose_25[17]
-    neck = pose_25[1]
-    nose = pose_25[0]
-    l_eye = pose_25[16]
-    r_eye = pose_25[15]
+def _gen_bbox(face_kpts):
+    print('=========== test point 4 in _gen_bbox ==================')
+    print(len(face_kpts))
+    print(type(face_kpts))
+    face_xs = face_kpts[:, 0]
+    face_ys = face_kpts[:, 1]
+    x_min = face_xs.min()
+    x_max = face_xs.max()
+    y_min = face_ys.min()
+    y_max = face_ys.max()
 
-    x0 = l_ear[0]
-    x1 = r_ear[0]
-    y1 = neck[1]
-    y0 = 0.5 * (l_eye[1] + r_eye[1]) + 1.5 * (nose[1] - 0.5 * (l_eye[1] + r_eye[1]))
-
-    bbox = [x0, x1, y0, y1]
+    bbox = [x_min, x_max, y_min, y_max]
     for i_x in range(4):
-        bbox[i_x] = int(round((2 + bbox[i_x]) / 4 * 224))
+        bbox[i_x] = int(round((bbox[i_x] + 1) / 2 * 256))
 
     return bbox
 
@@ -55,7 +53,6 @@ class iPERLoader:
         self.workers = workers
         self.img_size = img_size
 
-        # ToAdd: images transform
         if transform != None:
             self.t = transform
         else:
@@ -106,8 +103,10 @@ class iPERLoader:
             shuffle=True
         )
 
+        print(f'train_set scale: {train_loader.dataset.__len__()}, '
+              f'val_set scale: {val_loader.dataset.__len__()}, '
+              f'test_set scale: {test_loader.dataset.__len__()}')
         return train_loader, val_loader, test_loader
-        # return train_loader, val_loader
 
 
 class iPERDataset(torch.utils.data.Dataset):
@@ -121,7 +120,7 @@ class iPERDataset(torch.utils.data.Dataset):
 
         # load items from a txt file
         # nm_file = os.path.join(data_root, f'{subset}.txt')
-        nm_file = os.path.join(data_root, f'test_4.txt')
+        nm_file = os.path.join(data_root, f'test_3.txt')
         self.lst_dir = []
         with open(nm_file, 'r') as f:
             self.lst_dir = f.readlines()
@@ -137,10 +136,17 @@ class iPERDataset(torch.utils.data.Dataset):
             dir_img.sort()
 
             # dir_img is the directory containing all the images, separate which would separate train, eval and test set
+            divide_point_val = round(0.8 * len(dir_img))
+            divide_point_test = round(0.9 * len(dir_img))
             if self.subset == 'train':
-                dir_img = dir_img[:round(0.8 * len(dir_img))]
-            elif self.subset == 'eval':
-                dir_img = dir_img[:1] + dir_img[round(0.8 * len(dir_img)):]
+                dir_img = dir_img[:divide_point_val]
+            elif self.subset == 'val':
+                dir_img = dir_img[:1] + dir_img[divide_point_val:divide_point_test]
+            elif self.subset == 'test':
+                dir_img = dir_img[:1] + dir_img[divide_point_test:]
+            else:
+                print('ERROR: wrong subset name')
+                exit()
 
             for j in range(len(dir_img)):
                 dir_img[j] = os.path.join(self.data_root, 'images_HD', i[:-1], dir_img[j])
@@ -168,9 +174,9 @@ class iPERDataset(torch.utils.data.Dataset):
         with open(nm_file_face, 'rb') as fo:  # 读取pkl文件数据
             dict_data = pickle.load(fo, encoding='bytes')
             data_face = dict_data['face_keypoints_2d'][int(img_pose_nm.split('/')[-1][:-4])]
-            print(dict_data.keys())
-            for i in dict_data.keys():
-                print(i, len(dict_data[i]))
+            # print(dict_data.keys())
+            # for i in dict_data.keys():
+            #     print(i, len(dict_data[i]))
             bbox = _gen_bbox(data_face)
 
         tsr_app_t = self.transform(img_app)  # the tensor containing target image
