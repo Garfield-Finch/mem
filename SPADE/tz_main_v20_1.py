@@ -285,8 +285,8 @@ def val(epoch, loader_val, dic_model, scheduler, device):
         lst_face_D_out = model_face_D(head_img_out, get_avg=False)
         loss_face_G = _cal_gan_loss(lst_face_D_out[0], True)
         loss_face_D = _cal_gan_loss(lst_face_D_out[0][0], False) + _cal_gan_loss(lst_face_D_img[0][0], True)
-        lst_loss_face_D.append(loss_face_D)
-        lst_loss_face_G.append(loss_face_G)
+        lst_loss_face_D.append(loss_face_D.item())
+        lst_loss_face_G.append(loss_face_G.item())
 
         # THE MAIN LOSS
         loss = (recon_loss +
