@@ -103,8 +103,6 @@ def train(epoch, loader_train, dic_model, scheduler, device):
         lst_face_D_out = model_face_D(head_img_out, get_avg=False)
         loss_face_G = _cal_gan_loss(lst_face_D_out[0], True)
         loss_face_D = _cal_gan_loss(lst_face_D_out[0][0], False) + _cal_gan_loss(lst_face_D_img[0][0], True)
-        lst_loss_face_D.append(loss_face_D)
-        lst_loss_face_G.append(loss_face_G)
 
         # THE MAIN LOSS
         loss = (recon_loss +
@@ -116,6 +114,8 @@ def train(epoch, loader_train, dic_model, scheduler, device):
         lst_loss_G.append(loss_G_img.item())
         lst_loss_D.append(loss_D_img.item())
         lst_loss_face.append(loss_face.item())
+        lst_loss_face_D.append(loss_face_D.item())
+        lst_loss_face_G.append(loss_face_G.item())
 
         if scheduler is not None:
             scheduler.step()
