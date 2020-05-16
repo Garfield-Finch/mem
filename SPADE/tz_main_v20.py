@@ -86,7 +86,7 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             for i_pt in range(4):
                 bbox_re[i_batch].append(bbox[i_pt][i_batch])
         bbox = bbox_re
-        loss_face, head_imgs_out, head_imgs_img = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+        loss_face = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
 
         # THE MAIN LOSS
         loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img + loss_face) * 10
@@ -233,7 +233,7 @@ def val(epoch, loader_val, dic_model, scheduler, device):
             for i_pt in range(4):
                 bbox_re[i_batch].append(bbox[i_pt][i_batch])
         bbox = bbox_re
-        loss_face, head_imgs_out, head_imgs_img = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
+        loss_face = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
 
         # THE MAIN LOSS
         loss = (recon_loss + latent_loss_weight * latent_loss + weight_gan * loss_G_img + loss_face) * 10
