@@ -108,23 +108,6 @@ def train(epoch, loader_train, dic_model, scheduler, device):
         )
 
         if i % 100 == 0:
-            # model.eval()
-
-            # sample = img[:sample_size]
-
-            # with torch.no_grad():
-            #     out, _ = model(sample)
-
-            # img_show = (torch.cat([sample, out]).to('cpu').detach().numpy() * 0.5 + 0.5) * 255
-            # viz.images(
-            #     img_show,
-            #     win='sample-out',
-            #     nrow=sample_size,
-            #     opts={
-            #         'title': 'sample-out',
-            #     }
-            # )
-
             img_save_name = f'sample/{EXPERIMENT_CODE}/{str(epoch + 1).zfill(5)}_{str(i).zfill(5)}.png'
             utils.save_image(
                 torch.cat([img_0[:sample_size], img[:sample_size],
@@ -141,8 +124,8 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             # model.train()
 
         # # increase the sequence of saving model
-        # if i % 200 == 0:
-        #     torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
+        if i % 200 == 0:
+            torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(epoch + 1).zfill(3)}.pt')
 
     for line_num, (lst, line_title) in enumerate(
             [(lst_loss, 'loss'),
@@ -295,7 +278,7 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
             [(lst_loss, 'loss'),
              ([mse_sum / (mse_n + 1e-09)], 'MSE')
              ]):
-        viz.line(Y=np.array([sum(lst) / len(lst)]), X=np.array([epoch]),
+        viz.line(Y=np.array([sum(lst) / (len(lst) + 1e-09)]), X=np.array([epoch]),
                  name=line_title,
                  win='val_loss',
                  opts=dict(title='val_loss', showlegend=True),
@@ -400,6 +383,6 @@ if __name__ == '__main__':
     for i in range(args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(i, loader_train, dic_model, scheduler, device)
-        val(i, loader_val, dic_model, scheduler, device)
+        # val(i, loader_val, dic_model, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_D_{str(i + 1).zfill(3)}.pt')
