@@ -181,8 +181,6 @@ def val(epoch, loader_eval, dic_model, scheduler, device):
     lst_loss_G = []
     lst_loss_D = []
     for i, (img_0, pose_0, img, label) in enumerate(loader):
-        print('================== test point 1 ----------------------')
-        print(i)
         if i >= 11:
             break
         img_0 = img_0.to(device)
