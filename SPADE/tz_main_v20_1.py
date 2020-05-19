@@ -435,10 +435,10 @@ if __name__ == '__main__':
     # models
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
-    # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
-    # model.eval()
-    # print('Complete !')
+    print('Loading Model...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_121/vqvae_204.pt'))
+    model.eval()
+    print('Complete !')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
@@ -455,10 +455,10 @@ if __name__ == '__main__':
     # Discriminator
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
-    # print('Loading Model_D...', end='')
-    # model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_D_121.pt'))
-    # model_D.eval()
-    # print('Complete !')
+    print('Loading Model_D...', end='')
+    model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_121/vqvae_D_204.pt'))
+    model_D.eval()
+    print('Complete !')
     optimizer_D = optim.Adam(model_D.parameters(), lr=args.lr)
     # if args.sched == 'cycle':
     #     scheduler = CycleScheduler(

@@ -364,7 +364,7 @@ if __name__ == '__main__':
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
     print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_120/vqvae_012.pt'))
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_120/vqvae_258.pt'))
     model.eval()
     print('Complete !')
 
@@ -382,7 +382,7 @@ if __name__ == '__main__':
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
     print('Loading Model_D...', end='')
-    model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_120/vqvae_D_012.pt'))
+    model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_120/vqvae_D_258.pt'))
     model_D.eval()
     print('Complete !')
     optimizer_D = optim.Adam(model_D.parameters(), lr=args.lr)
