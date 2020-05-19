@@ -1,3 +1,8 @@
+### v20
+- face loss and face discriminator added
+- v20: face loss only
+- v20_1: face loss and face discriminator
+
 ### v18
 - experiment v07_01 tz_main_18_2_4.py
  
