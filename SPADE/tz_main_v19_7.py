@@ -344,20 +344,20 @@ if __name__ == '__main__':
 
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
-    # print('Loading Model...', end='')
-    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_90/vqvae_121.pt'))
-    # model.eval()
-    # print('Complete !')
+    print('Loading Model...', end='')
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_001.pt'))
+    model.eval()
+    print('Complete !')
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
     scheduler = None
 
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
-    # print('Loading Model_condition...', end='')
-    # model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_032.pt'))
-    # model_cond.eval()
-    # print('Complete !')
+    print('Loading Model_condition...', end='')
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_061.pt'))
+    model_cond.eval()
+    print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
