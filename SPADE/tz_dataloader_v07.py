@@ -89,7 +89,8 @@ class iPERLoader:
             dataset=val_set,
             batch_size=self.batch,
             num_workers=self.workers,
-            pin_memory=True
+            pin_memory=True,
+            shuffle=True
         )
 
         test_loader = torch.utils.data.DataLoader(
