@@ -15,9 +15,9 @@ from torchvision import datasets, transforms, utils
 from face.criterions.faceloss import FaceLoss
 
 # from utils.vqvae import VQVAE
-from tz_networks_v12_spade import appVQVAE, VQVAE_SPADE, poseVQVAE, MultiscaleDiscriminator
+from tz_networks_v13_spade import appVQVAE, VQVAE_SPADE_v2, poseVQVAE, MultiscaleDiscriminator
 # from vq_vae_2_pytorch.scheduler import CycleScheduler
-from tz_dataloader_v07_1 import iPERLoader
+from tz_dataloader_v07 import iPERLoader
 
 from options.tz_train_options import TrainOptions
 from typing import Any, Dict, List
@@ -57,7 +57,7 @@ def train(epoch, loader_train, dic_model, scheduler, device):
             else criterion(tsr_in, torch.zeros(tsr_in.shape).cuda())
 
     latent_loss_weight = 0.25
-    weight_gan = 0.05
+    weight_gan = 0.4
     sample_size = min(8, args.batch_size)
 
     mse_sum = 0
@@ -72,8 +72,9 @@ def train(epoch, loader_train, dic_model, scheduler, device):
         img = img.to(device)
         pose = label.to(device)
 
-        pose_out, _, _, _, pose_seg = model_cond(pose)
-        out, latent_loss = model_img(img_0, pose_seg)
+        pose_out, _, pose_quant_t, pose_quant_b, pose_seg = model_cond(pose)
+        _, _, pose_0_quant_t, pose_0_quant_b, _ = model_cond(pose_0)
+        out, latent_loss = model_img(img_0, pose_seg, pose_quant_t, pose_quant_b, pose_0_quant_t, pose_0_quant_b)
         lst_D_img = model_D(img)
         lst_D_out = model_D(out)
 
@@ -338,7 +339,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_122'
+    EXPERIMENT_CODE = 'as_130'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -352,7 +353,7 @@ if __name__ == '__main__':
     DESCRIPTION = """
         SPADE;Z=img_0;Seg=pose; Discriminator; Meta train
     """\
-                  f'file: tz_main_v20_2.py;\n '\
+                  f'file: tz_main_v21.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -373,30 +374,30 @@ if __name__ == '__main__':
     loader_train, loader_val, _ = \
         iPERLoader(data_root=args.path, batch=args.batch_size, transform=transform).data_load()
 
-    model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
+    model = VQVAE_SPADE_v2(embed_dim=64, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
-    print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_008.pt'))
-    model.eval()
-    print('Complete !')
-    # optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    optimizer = build_optimizer(model, lr=args.lr)
+    # print('Loading Model...', end='')
+    # model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_008.pt'))
+    # model.eval()
+    # print('Complete !')
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    # optimizer = build_optimizer(model, lr=args.lr)
     scheduler = None
 
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_067.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_084.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
-    print('Loading Model_D...', end='')
-    model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_D_008.pt'))
-    model_D.eval()
-    print('Complete !')
+    # print('Loading Model_D...', end='')
+    # model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_D_008.pt'))
+    # model_D.eval()
+    # print('Complete !')
     optimizer_D = optim.Adam(model_D.parameters(), lr=args.lr)
     # if args.sched == 'cycle':
     #     scheduler = CycleScheduler(

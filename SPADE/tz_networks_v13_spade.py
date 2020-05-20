@@ -7,7 +7,8 @@ from torch.nn import functional as F
 
 import numpy as np
 from options.train_options import TrainOptions
-from models.networks.tz_generator import SPADEGenerator
+from models.networks.tz_generator_v02 import SPADEGenerator
+from tz_networks_transfer_v01_2 import TransferModel
 
 # Copyright 2018 The Sonnet Authors. All Rights Reserved.
 #
@@ -393,7 +394,7 @@ class appVQVAE(nn.Module):
         return dec
 
 
-class VQVAE_SPADE(nn.Module):
+class VQVAE_SPADE_v2(nn.Module):
     def __init__(
         self,
         in_channel=3,
@@ -428,13 +429,19 @@ class VQVAE_SPADE(nn.Module):
         #     n_res_channel,
         #     stride=4,
         # )
+        self.transfer_0 = TransferModel()
+        self.upsample_transfer_0 = nn.ConvTranspose2d(
+            128 , embed_dim, 4, stride=2, padding=1
+        )
 
         self.dec = SPADEGenerator(parser)
 
 
-    def forward(self, app, cond):
+    # def forward(self, app, cond):
+    def forward(self, app, cond, pose_quant_t, pose_quant_b, pose_0_quant_t, pose_0_quant_b):
         quant_t, quant_b, diff, _, _ = self.encode(app)
-        dec = self.decode(quant_t, quant_b, cond)
+
+        dec = self.decode(quant_t, quant_b, cond, pose_quant_t, pose_quant_b, pose_0_quant_t, pose_0_quant_b)
         return dec, diff
 
     def encode(self, input):
@@ -456,10 +463,37 @@ class VQVAE_SPADE(nn.Module):
 
         return quant_t, quant_b, diff_t + diff_b, id_t, id_b
 
-    def decode(self, quant_t, quant_b, cond):
+    def decode(self, quant_t, quant_b, cond, pose_quant_t, pose_quant_b, pose_0_quant_t, pose_0_quant_b):
         upsample_t = self.upsample_t(quant_t)
         quant = torch.cat([upsample_t, quant_b], 1)
-        dec = self.dec(cond, z=quant)
+
+        # batch, dim, x, y = pose_0_quant_t.shape
+        # pose_0_quant_t_2 = torch.zeros(batch, 2 * dim, x, y)
+        # pose_quant_t_2 = torch.zeros(batch, 2 * dim, x, y)
+        #
+        # batch, dim, x, y = pose_0_quant_b.shape
+        # pose_0_quant_b_2 = torch.zeros(batch, 2 * dim, x, y)
+        # pose_quant_b_2 = torch.zeros(batch, 2 * dim, x, y)
+        #
+        # for i in range(dim):
+        #     pose_0_quant_t_2[:, i, :, :] = pose_0_quant_t[:, i, :, :]
+        #     pose_0_quant_t_2[:, i+1, :, :] = pose_0_quant_t[:, i, :, :]
+        #
+        #     pose_0_quant_b_2[:, i, :, :] = pose_0_quant_b[:, i, :, :]
+        #     pose_0_quant_b_2[:, i + 1, :, :] = pose_0_quant_b[:, i, :, :]
+        #
+        #     pose_quant_t_2[:, i, :, :] = pose_quant_t[:, i, :, :]
+        #     pose_quant_t_2[:, i + 1, :, :] = pose_quant_t[:, i, :, :]
+        #
+        #     pose_quant_b_2[:, i, :, :] = pose_quant_b[:, i, :, :]
+        #     pose_quant_b_2[:, i + 1, :, :] = pose_quant_b[:, i, :, :]
+
+        transfer_quant_t, transfer_quant_b = \
+            self.transfer_0(pose_s_quant_t=pose_0_quant_t, pose_t_quant_t=pose_quant_t, img_s_quant_t=quant_t,
+                            pose_s_quant_b=pose_0_quant_b, pose_t_quant_b=pose_quant_b, img_s_quant_b=quant_b)
+
+        app_transfered = torch.cat([self.upsample_t(transfer_quant_t), transfer_quant_b], 1)
+        dec = self.dec(input=cond, z=quant, app=app_transfered)
 
         return dec
 

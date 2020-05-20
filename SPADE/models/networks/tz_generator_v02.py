@@ -38,7 +38,8 @@ class SPADEGenerator(BaseNetwork):
             # Otherwise, we make the network deterministic by starting with
             # downsampled segmentation map instead of random z
             # self.fc = nn.Conv2d(self.opt.semantic_nc, 16 * nf, 3, padding=1)
-            self.fc = nn.Conv2d(256, 16 * nf, 3, padding=1)
+            # self.fc = nn.Conv2d(256, 16 * nf, 3, padding=1)
+            self.fc = nn.Conv2d(128, 16 * nf, 3, padding=1)
 
         self.head_0 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
 
@@ -49,6 +50,11 @@ class SPADEGenerator(BaseNetwork):
         self.up_1 = SPADEResnetBlock(4 * nf, 2 * nf, opt)
         self.up_2 = SPADEResnetBlock(2 * nf, 2 * nf, opt)
         self.up_3 = SPADEResnetBlock(2 * nf, 1 * nf, opt)
+
+        self.up_0_ap = SPADEResnetBlock(4 * nf, 4 * nf, opt)
+        self.up_1_ap = SPADEResnetBlock(2 * nf, 2 * nf, opt)
+        self.up_2_ap = SPADEResnetBlock(2 * nf, 2 * nf, opt)
+        self.up_3_ap = SPADEResnetBlock(1 * nf, 1 * nf, opt)
 
         final_nc = nf
 
@@ -76,7 +82,7 @@ class SPADEGenerator(BaseNetwork):
 
         return sw, sh
 
-    def forward(self, input, z=None):
+    def forward(self, input, z=None, app=None):
         seg = input
 
         if self.opt.use_vae:
@@ -104,12 +110,16 @@ class SPADEGenerator(BaseNetwork):
 
         x = self.up(x)
         x = self.up_0(x, seg)
+        x = self.up_0_ap(x, app)
         x = self.up(x)
         x = self.up_1(x, seg)
+        x = self.up_1_ap(x, app)
         x = self.up(x)
         x = self.up_2(x, seg)
+        # x = self.up_2_ap(x, app)
         x = self.up(x)
         x = self.up_3(x, seg)
+        # x = self.up_3_ap(x, app)
 
         if self.opt.num_upsampling_layers == 'most':
             x = self.up(x)
