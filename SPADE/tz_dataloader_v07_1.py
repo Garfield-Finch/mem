@@ -119,7 +119,7 @@ class iPERDataset(torch.utils.data.Dataset):
 
         # load items from a txt file
         # nm_file = os.path.join(data_root, f'{subset}.txt')
-        nm_file = os.path.join(data_root, f'test_3.txt')
+        nm_file = os.path.join(data_root, f'test_4.txt')
         self.lst_dir = []
         with open(nm_file, 'r') as f:
             self.lst_dir = f.readlines()
