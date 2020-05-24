@@ -204,9 +204,14 @@ def val(epoch, loader_val, dic_model, scheduler, device):
         img_0 = img_0.to(device)
         img = img.to(device)
         pose = label.to(device)
+        pose_0 = pose_0.to(device)
 
-        pose_out, _, _, _, pose_seg = model_cond(pose)
-        out, latent_loss = model_img(img_0, pose_seg)
+        pose_0 = pose_0.reshape([-1, pose_0.shape[2], pose_0.shape[3], pose_0.shape[4]])
+        img_0 = img_0.reshape([-1, img_0.shape[2], img_0.shape[3], img_0.shape[4]])
+
+        pose_0_out, _, pose_0_quant_t, pose_0_quant_b, _ = model_cond(pose_0)
+        pose_out, _, pose_quant_t, pose_quant_b, pose_seg = model_cond(pose)
+        out, latent_loss = model_img(img_0, pose_seg, pose_0_quant_t, pose_0_quant_b, pose_quant_t, pose_quant_b)
         lst_D_img = model_D(img)
         lst_D_out = model_D(out)
 
@@ -224,13 +229,6 @@ def val(epoch, loader_val, dic_model, scheduler, device):
             loss_D_img += _cal_gan_loss(lst_D_img[j][0], True)
 
         # # face loss called here
-        # transpose bbox
-        batch_size = img_0.shape[0]
-        bbox_re = [[] for _ in range(batch_size)]
-        for i_batch in range(batch_size):
-            for i_pt in range(4):
-                bbox_re[i_batch].append(bbox[i_pt][i_batch])
-        bbox = bbox_re
         loss_face, head_img_out, head_img_img = model_face(imgs1=out, imgs2=img, bbox1=bbox, bbox2=bbox)
 
         # THE MAIN LOSS
@@ -403,6 +401,7 @@ if __name__ == '__main__':
     for i in range(args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(i, loader_train, dic_model, scheduler, device)
-        # val(i, loader_val, dic_model, scheduler, device)
+        if i % 50 == 0 and i != 0:
+            val(i, loader_val, dic_model, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_D_{str(i + 1).zfill(3)}.pt')
