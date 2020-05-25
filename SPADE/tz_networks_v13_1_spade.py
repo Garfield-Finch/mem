@@ -494,8 +494,6 @@ class VQVAE_SPADE_v2(nn.Module):
 
         app_transfered = torch.cat([self.upsample_t(transfer_quant_t), transfer_quant_b], 1)
         cond = torch.cat([cond, app_transfered], dim=1)
-        print('============= test point 1 ===============')
-        print(quant.shape)
         dec = self.dec(input=cond, z=quant)
 
         return dec
