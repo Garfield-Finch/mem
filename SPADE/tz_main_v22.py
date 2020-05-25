@@ -360,7 +360,7 @@ if __name__ == '__main__':
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
     print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_120/vqvae_258.pt'))
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_140/vqvae_050.pt'))
     model.eval()
     print('Complete !')
 
@@ -370,7 +370,7 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_061.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_164.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
@@ -401,7 +401,7 @@ if __name__ == '__main__':
     for i in range(args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
         train(i, loader_train, dic_model, scheduler, device)
-        if i % 50 == 0 and i != 0:
-            val(i, loader_val, dic_model, scheduler, device)
+        # if i % 50 == 0 and i != 0:
+        #     val(i, loader_val, dic_model, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_D_{str(i + 1).zfill(3)}.pt')
