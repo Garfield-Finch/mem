@@ -449,23 +449,41 @@ class VQVAE_SPADE(nn.Module):
         quant_t = quant_t.reshape([-1, 8, quant_t.shape[1], quant_t.shape[2], quant_t.shape[3]])
         alpha = self.attention(q=pose_quant_t, k=pose_0_quant_t, v=quant_t)
 
-        # use global average pooling
-        alpha = F.adaptive_avg_pool2d(alpha, (1, 1)).reshape([alpha.shape[0], -1])
-        for i in range(8):
-            quant_t[0, i, :, :, :] *= alpha[0, i]
+        # # if use global average pooling
+        # alpha = F.adaptive_avg_pool2d(alpha, (1, 1)).reshape([alpha.shape[0], -1])
+        # for i in range(8):
+        #     quant_t[0, i, :, :, :] *= alpha[0, i]
 
+        # pixelwise weight
+        quant_t = quant_t.permute(0, 3, 4, 2, 1)  # [batch, H, W, C=128, ns]
+        alpha = alpha.permute(0, 3, 4, 1, 2)  # [batch, H, W, ns, C_alpha=1]
+
+        quant_t = torch.matmul(quant_t, alpha)
+        quant_t = quant_t.permute(0, 4, 3, 1, 2)
+        quant_t.squeeze_(1)
+
+        # calculate the weight
         pose_0_quant_b = pose_0_quant_b.reshape(
             [-1, 8, pose_0_quant_b.shape[1], pose_0_quant_b.shape[2], pose_0_quant_b.shape[3]])
         quant_b = quant_b.reshape([-1, 8, quant_b.shape[1], quant_b.shape[2], quant_b.shape[3]])
         alpha = self.attention(q=pose_quant_b, k=pose_0_quant_b, v=quant_b)
 
-        # use global average pooling
-        alpha = F.adaptive_avg_pool2d(alpha, (1, 1)).reshape([alpha.shape[0], -1])
-        for i in range(8):
-            quant_b[0, i, :, :, :] *= alpha[0, i]
+        # # if use global average pooling
+        # alpha = F.adaptive_avg_pool2d(alpha, (1, 1)).reshape([alpha.shape[0], -1])
+        # for i in range(8):
+        #     quant_b[0, i, :, :, :] *= alpha[0, i]
 
-        quant_t = quant_t.sum(dim=1)
-        quant_b = quant_b.sum(dim=1)
+        # pixelwise weight
+        quant_b = quant_b.permute(0, 3, 4, 2, 1)  # [batch, H, W, C=128, ns]
+        alpha = alpha.permute(0, 3, 4, 1, 2)  # [batch, H, W, ns, C_alpha=1]
+
+        quant_b = torch.matmul(quant_b, alpha)
+        quant_b = quant_b.permute(0, 4, 3, 1, 2)
+        quant_b.squeeze_(1)
+
+        # # if use global average pooling
+        # quant_t = quant_t.sum(dim=1)
+        # quant_b = quant_b.sum(dim=1)
 
         dec = self.decode(quant_t, quant_b, cond)
         return dec, diff

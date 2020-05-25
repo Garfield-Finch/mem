@@ -323,7 +323,7 @@ if __name__ == '__main__':
 
     print(args)
 
-    EXPERIMENT_CODE = 'as_140'
+    EXPERIMENT_CODE = 'as_141'
     if not os.path.exists(f'checkpoint/{EXPERIMENT_CODE}/'):
         print(f'New EXPERIMENT_CODE:{EXPERIMENT_CODE}, creating saving directories ...', end='')
         os.mkdir(f'checkpoint/{EXPERIMENT_CODE}/')
@@ -337,7 +337,7 @@ if __name__ == '__main__':
     DESCRIPTION = """
         SPADE;Z=img_0;Seg=pose; Discriminator;
     """\
-                  f'file: tz_main_v20.py;\n '\
+                  f'file: tz_main_v22.py;\n '\
                   f'Hostname: {socket.gethostname()}; ' \
                   f'Experiment_Code: {EXPERIMENT_CODE};\n'
 
@@ -361,7 +361,7 @@ if __name__ == '__main__':
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
     print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_140/vqvae_124.pt'))
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_115/vqvae_029.pt'))
     model.eval()
     print('Complete !')
 
@@ -371,17 +371,17 @@ if __name__ == '__main__':
     model_cond = poseVQVAE().to(device)
     model_cond = nn.DataParallel(model_cond).cuda()
     print('Loading Model_condition...', end='')
-    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_164.pt'))
+    model_cond.load_state_dict(torch.load('/p300/mem/mem_src/checkpoint/pose_06_black/vqvae_167.pt'))
     model_cond.eval()
     print('Complete !')
     optimizer_cond = optim.Adam(model_cond.parameters(), lr=args.lr)
 
     model_D = MultiscaleDiscriminator(input_nc=3).to(device)
     model_D = nn.DataParallel(model_D).cuda()
-    print('Loading Model_D...', end='')
-    model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_120/vqvae_D_258.pt'))
-    model_D.eval()
-    print('Complete !')
+    # print('Loading Model_D...', end='')
+    # model_D.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_120/vqvae_D_258.pt'))
+    # model_D.eval()
+    # print('Complete !')
     optimizer_D = optim.Adam(model_D.parameters(), lr=args.lr)
     # if args.sched == 'cycle':
     #     scheduler = CycleScheduler(
@@ -401,8 +401,8 @@ if __name__ == '__main__':
 
     for i in range(args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
-        # train(i, loader_train, dic_model, scheduler, device)
-        # if i % 50 == 0 and i != 0:
-        val(i, loader_val, dic_model, scheduler, device)
+        train(i, loader_train, dic_model, scheduler, device)
+        if i % 50 == 0 and i != 0:
+            val(i, loader_val, dic_model, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_D_{str(i + 1).zfill(3)}.pt')
