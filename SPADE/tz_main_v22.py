@@ -237,7 +237,8 @@ def val(epoch, loader_val, dic_model, scheduler, device):
         lst_loss.append(loss.item())
         lst_loss_G.append(loss_G_img.item())
         lst_loss_D.append(loss_D_img.item())
-        lst_loss_face.append(loss_face.item())
+        if not (loss_face == 0):
+            lst_loss_face.append(loss_face.item())
 
         if scheduler is not None:
             scheduler.step()
@@ -280,7 +281,7 @@ def val(epoch, loader_val, dic_model, scheduler, device):
 
             # to visualize the face
             head_img_vis = (np.array(img[0].detach().cpu()) + 1) / 2 * 255
-            head_img_vis[0, bbox[0][2]:bbox[0][3], bbox[0][0]:bbox[0][1]] = 255
+            head_img_vis[0, int(bbox[0][2]):int(bbox[0][3]), int(bbox[0][0]):int(bbox[0][1])] = 255
             viz.images(head_img_vis, win='VAL_vis_face', nrow=sample_size,
                        opts={'title': 'VAL: vis face'})
 
@@ -360,7 +361,7 @@ if __name__ == '__main__':
     model = VQVAE_SPADE(embed_dim=128, parser=parser).to(device)
     model = nn.DataParallel(model).cuda()
     print('Loading Model...', end='')
-    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_140/vqvae_050.pt'))
+    model.load_state_dict(torch.load('/p300/mem/mem_src/SPADE/checkpoint/as_140/vqvae_124.pt'))
     model.eval()
     print('Complete !')
 
@@ -400,8 +401,8 @@ if __name__ == '__main__':
 
     for i in range(args.epoch):
         viz.text(f'{DESCRIPTION} ##### Epoch: {i} #####', win='board')
-        train(i, loader_train, dic_model, scheduler, device)
+        # train(i, loader_train, dic_model, scheduler, device)
         # if i % 50 == 0 and i != 0:
-        #     val(i, loader_val, dic_model, scheduler, device)
+        val(i, loader_val, dic_model, scheduler, device)
         torch.save(model.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_{str(i + 1).zfill(3)}.pt')
         torch.save(model_D.state_dict(), f'checkpoint/{EXPERIMENT_CODE}/vqvae_D_{str(i + 1).zfill(3)}.pt')
