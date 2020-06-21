@@ -92,6 +92,8 @@ if __name__ == '__main__':
     parser.add_argument('--sched', type=str)
     parser.add_argument('--path', type=str, default='/p300/dataset/iPER/')
     parser.add_argument('--env', type=str, default='main')
+    parser.add_argument('--gpu', type=str, default='0,1,2,3')
+    parser.add_argument('--batch', type=int, default=64)
 
     args = parser.parse_args()
 
@@ -99,7 +101,7 @@ if __name__ == '__main__':
 
     viz = visdom.Visdom(server='10.10.10.100', port=33241, env=args.env)
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
     device = 'cuda'
     torch.backends.cudnn.benchmark = True
@@ -113,7 +115,7 @@ if __name__ == '__main__':
         ]
     )
 
-    loader, _, _ = iPERLoader(data_root=args.path, batch=128, transform=transform).data_load()
+    loader, _, _ = iPERLoader(data_root=args.path, batch=args.batch, transform=transform).data_load()
 
     model = VQVAE().to(device)
     model = nn.DataParallel(model).cuda()
